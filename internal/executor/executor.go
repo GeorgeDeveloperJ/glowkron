@@ -3,6 +3,7 @@ package executor
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os/exec"
 	"time"
 )
@@ -45,12 +46,14 @@ func Run(ctx context.Context, cfg ProcessConfig) (*ExecutionResult, error) {
 	stdout := stdoutBuf.String()
 	stderr := stderrBuf.String()
 
-	var exitCode int
+	exitCode := 0
 
-	if cmdErr == nil {
-		exitCode = 0
-	} else {
-		exitCode = 1
+	if cmdErr != nil {
+		if exitErr, ok := errors.AsType[*exec.ExitError](cmdErr); ok {
+			exitCode = exitErr.ExitCode()
+		} else {
+			return nil, cmdErr
+		}
 	}
 
 	return &ExecutionResult{ExitCode: exitCode, Stdout: stdout, Stderr: stderr, Duration: duration}, nil
