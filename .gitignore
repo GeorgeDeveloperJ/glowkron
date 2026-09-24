@@ -1,0 +1,16 @@
+# Binaries & Build Outputs
+/bin/
+*.exe
+/glowkron
+# SQLite databases & Write-aheads Logs
+*.db
+*.db-wal
+*.db-shm
+
+# Environment
+.env
+.env.*
+
+# Test Coverage Outputs
+*.out
+coverage.html
