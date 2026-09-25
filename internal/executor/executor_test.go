@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/GeorgeDeveloperJ/glowkron/internal/executor"
 )
@@ -43,12 +44,32 @@ func TestRun_NonZeroExit(t *testing.T) {
 	}
 
 	res, err := executor.Run(ctx, cfg)
-
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	if res.ExitCode != 42 {
 		t.Errorf("expected exit code 42, got %d", res.ExitCode)
+	}
+}
+
+func TestRun_TimeoutCancellation(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	cfg := executor.ProcessConfig{
+		Command: "sleep",
+		Args:    []string{"1"},
+	}
+
+	start := time.Now()
+	res, err := executor.Run(ctx, cfg)
+	elapsed := time.Since(start)
+
+	if res.Duration >= 500*time.Millisecond {
+		t.Errorf("command took %v, expected it to be killed around 50ms", elapsed)
+	}
+
+	if err == nil {
+		t.Errorf("expeted error due to timeout, got nil")
 	}
 }

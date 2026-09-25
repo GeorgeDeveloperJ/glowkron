@@ -50,6 +50,10 @@ func Run(ctx context.Context, cfg ProcessConfig) (*ExecutionResult, error) {
 
 	exitCode := 0
 
+	if ctx.Err() != nil {
+		return &ExecutionResult{ExitCode: -1, Stdout: stdout, Stderr: stderr, Duration: duration}, ctx.Err()
+	}
+
 	if cmdErr != nil {
 		if exitErr, ok := errors.AsType[*exec.ExitError](cmdErr); ok {
 			exitCode = exitErr.ExitCode()
