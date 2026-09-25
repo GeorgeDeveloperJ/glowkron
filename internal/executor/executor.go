@@ -1,3 +1,5 @@
+// Package executor runs the scripts, provides outputs and handles errors
+// Using buffers and time for I/O and duration
 package executor
 
 import (
