@@ -2,7 +2,9 @@ package executor_test
 
 import (
 	"context"
+	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -71,5 +73,28 @@ func TestRun_TimeoutCancellation(t *testing.T) {
 
 	if err == nil {
 		t.Errorf("expeted error due to timeout, got nil")
+	}
+}
+
+func TestRun_ProcessGroupKill(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	cfg := executor.ProcessConfig{
+		Command: "sh",
+		Args:    []string{"-c", "sleep 30 & echo $! && wait"},
+	}
+
+	res, _ := executor.Run(ctx, cfg)
+
+	pidStr := strings.TrimSpace(res.Stdout)
+	pid, err := strconv.Atoi(pidStr)
+	if err != nil {
+		t.Fatalf("failed to parse child PID %q: %v", pidStr, err)
+	}
+	time.Sleep(50 * time.Millisecond)
+	err = syscall.Kill(pid, 0)
+	if err == nil {
+		_ = syscall.Kill(pid, syscall.SIGKILL)
+		t.Errorf("child proccess %d is still alive! Proccess group kill failed", pid)
 	}
 }

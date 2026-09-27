@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"os/exec"
+	"syscall"
 	"time"
 )
 
@@ -28,6 +29,11 @@ type ExecutionResult struct {
 func Run(ctx context.Context, cfg ProcessConfig) (*ExecutionResult, error) {
 	start := time.Now()
 	cmd := exec.CommandContext(ctx, cfg.Command, cfg.Args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
+	cmd.Cancel = func() error {
+		return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	}
 
 	if cfg.Dir != "" {
 		cmd.Dir = cfg.Dir
