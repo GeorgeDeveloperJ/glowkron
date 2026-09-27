@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"os"
 	"os/exec"
 	"syscall"
 	"time"
@@ -27,6 +28,12 @@ type ExecutionResult struct {
 }
 
 func Run(ctx context.Context, cfg ProcessConfig) (*ExecutionResult, error) {
+	if cfg.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, cfg.Timeout)
+		defer cancel()
+	}
+
 	start := time.Now()
 	cmd := exec.CommandContext(ctx, cfg.Command, cfg.Args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
@@ -39,13 +46,15 @@ func Run(ctx context.Context, cfg ProcessConfig) (*ExecutionResult, error) {
 		cmd.Dir = cfg.Dir
 	}
 	if len(cfg.Env) > 0 {
-		cmd.Env = cfg.Env
+		cmd.Env = append(os.Environ(), cfg.Env...)
 	}
 
 	var stdoutBuf bytes.Buffer
 	var stderrBuf bytes.Buffer
 	cmd.Stdout = &stdoutBuf
 	cmd.Stderr = &stderrBuf
+
+	cmd.WaitDelay = 1 * time.Second
 
 	cmdErr := cmd.Run()
 

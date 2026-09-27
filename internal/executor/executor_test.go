@@ -98,3 +98,23 @@ func TestRun_ProcessGroupKill(t *testing.T) {
 		t.Errorf("child proccess %d is still alive! Proccess group kill failed", pid)
 	}
 }
+
+func TestRun_ConfigTimeout(t *testing.T) {
+	ctx := context.Background()
+	cfg := executor.ProcessConfig{
+		Command: "sleep",
+		Args:    []string{"1"},
+		Timeout: 50 * time.Millisecond,
+	}
+
+	start := time.Now()
+	_, err := executor.Run(ctx, cfg)
+	elapsed := time.Since(start)
+
+	if elapsed >= 500*time.Millisecond {
+		t.Errorf("command took %v, expected cfg.Timeout to kill it around 50ms", elapsed)
+	}
+	if err == nil {
+		t.Errorf("expected timeout error from cfg.Timeout, got nil")
+	}
+}
