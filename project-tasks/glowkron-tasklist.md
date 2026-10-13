@@ -9,11 +9,11 @@
 
 ## Overall Roadmap Status
 
-- [ ] **Phase 1: Core Subprocess Executor & State Store** (3 / 4 complete)
+- [x] **Phase 1: Core Subprocess Executor & State Store** (4 / 4 complete)
   - [x] Task 1.1: Repository Setup & Entrypoint Skeleton
   - [x] Task 1.2: Subprocess Execution with Process Groups & Timeout
   - [x] Task 1.3: SQLite Storage with WAL Mode, Migrations & CRUD
-  - [ ] Task 1.4: Disk-Backed Run Log Files & In-Memory Pub/Sub Broker
+  - [x] Task 1.4: Disk-Backed Run Log Files & In-Memory Pub/Sub Broker
 - [ ] **Phase 2: DAG Workflow Engine & Worker Pool** (0 / 3 complete)
   - [ ] Task 2.1: Workflow YAML Parser & Schema Validator
   - [ ] Task 2.2: DAG Dependency Resolver & Topological Sort
@@ -111,7 +111,7 @@
 
 ---
 
-### [ ] Task 1.4: Disk-Backed Run Log Files & In-Memory Pub/Sub Broker
+### [x] Task 1.4: Disk-Backed Run Log Files & In-Memory Pub/Sub Broker
 - **Spec Reference & Quoted Requirements:**
   > "1.4: Raw Log File Manager (`internal/logger`):
   > - Thread-safe disk file appender for run logs under `~/.glowkron/logs/<run_id>.log`.
