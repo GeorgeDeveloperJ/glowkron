@@ -1,6 +1,7 @@
 package executor_test
 
 import (
+	"bytes"
 	"context"
 	"strconv"
 	"strings"
@@ -72,7 +73,7 @@ func TestRun_TimeoutCancellation(t *testing.T) {
 	}
 
 	if err == nil {
-		t.Errorf("expeted error due to timeout, got nil")
+		t.Errorf("expected error due to timeout, got nil")
 	}
 }
 
@@ -95,7 +96,7 @@ func TestRun_ProcessGroupKill(t *testing.T) {
 	err = syscall.Kill(pid, 0)
 	if err == nil {
 		_ = syscall.Kill(pid, syscall.SIGKILL)
-		t.Errorf("child proccess %d is still alive! Proccess group kill failed", pid)
+		t.Errorf("child process %d is still alive! Process group kill failed", pid)
 	}
 }
 
@@ -116,5 +117,36 @@ func TestRun_ConfigTimeout(t *testing.T) {
 	}
 	if err == nil {
 		t.Errorf("expected timeout error from cfg.Timeout, got nil")
+	}
+}
+
+func TestRun_BoundedBufferAndCustomWriter(t *testing.T) {
+	ctx := context.Background()
+	var customStream bytes.Buffer
+
+	cfg := executor.ProcessConfig{
+		Command:   "sh",
+		Args:      []string{"-c", "echo 'line1' && echo 'line2' && echo 'line3'"},
+		Stdout:    &customStream,
+		MaxBuffer: 10, // only keep last 10 bytes in ExecutionResult.Stdout
+	}
+
+	res, err := executor.Run(ctx, cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Custom stream receives the entire stdout
+	fullStream := customStream.String()
+	if !strings.Contains(fullStream, "line1") || !strings.Contains(fullStream, "line3") {
+		t.Errorf("custom stream did not receive full output, got %q", fullStream)
+	}
+
+	// ExecutionResult.Stdout is bounded by MaxBuffer (10 bytes)
+	if len(res.Stdout) > 10 {
+		t.Errorf("expected res.Stdout len <= 10, got %d (%q)", len(res.Stdout), res.Stdout)
+	}
+	if !strings.HasSuffix(res.Stdout, "line3\n") {
+		t.Errorf("expected res.Stdout to contain tail 'line3\\n', got %q", res.Stdout)
 	}
 }

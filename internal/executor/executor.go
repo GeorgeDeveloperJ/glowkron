@@ -3,21 +3,25 @@
 package executor
 
 import (
-	"bytes"
 	"context"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
+	"sync"
 	"syscall"
 	"time"
 )
 
 type ProcessConfig struct {
-	Command string
-	Args    []string
-	Env     []string
-	Dir     string
-	Timeout time.Duration
+	Command   string
+	Args      []string
+	Env       []string
+	Dir       string
+	Timeout   time.Duration
+	Stdout    io.Writer // Optional destination for full stdout stream
+	Stderr    io.Writer // Optional destination for full stderr stream
+	MaxBuffer int       // Max in-memory capture bytes in ExecutionResult (default 64KB)
 }
 
 type ExecutionResult struct {
@@ -25,6 +29,49 @@ type ExecutionResult struct {
 	Stdout   string
 	Stderr   string
 	Duration time.Duration
+}
+
+// boundedBuffer captures up to limit bytes in memory, keeping the tail on overflow.
+type boundedBuffer struct {
+	mu    sync.Mutex
+	buf   []byte
+	limit int
+}
+
+func newBoundedBuffer(limit int) *boundedBuffer {
+	if limit <= 0 {
+		limit = 64 * 1024 // 64KB default
+	}
+	return &boundedBuffer{
+		buf:   make([]byte, 0, limit),
+		limit: limit,
+	}
+}
+
+func (b *boundedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	n := len(p)
+	if n >= b.limit {
+		b.buf = append(b.buf[:0], p[n-b.limit:]...)
+		return n, nil
+	}
+
+	space := b.limit - len(b.buf)
+	if n > space {
+		drop := n - space
+		copy(b.buf, b.buf[drop:])
+		b.buf = b.buf[:len(b.buf)-drop]
+	}
+	b.buf = append(b.buf, p...)
+	return n, nil
+}
+
+func (b *boundedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return string(b.buf)
 }
 
 func Run(ctx context.Context, cfg ProcessConfig) (*ExecutionResult, error) {
@@ -52,10 +99,25 @@ func Run(ctx context.Context, cfg ProcessConfig) (*ExecutionResult, error) {
 		cmd.Env = append(os.Environ(), cfg.Env...)
 	}
 
-	var stdoutBuf bytes.Buffer
-	var stderrBuf bytes.Buffer
-	cmd.Stdout = &stdoutBuf
-	cmd.Stderr = &stderrBuf
+	limit := cfg.MaxBuffer
+	if limit <= 0 {
+		limit = 64 * 1024
+	}
+
+	stdoutBuf := newBoundedBuffer(limit)
+	stderrBuf := newBoundedBuffer(limit)
+
+	if cfg.Stdout != nil {
+		cmd.Stdout = io.MultiWriter(cfg.Stdout, stdoutBuf)
+	} else {
+		cmd.Stdout = stdoutBuf
+	}
+
+	if cfg.Stderr != nil {
+		cmd.Stderr = io.MultiWriter(cfg.Stderr, stderrBuf)
+	} else {
+		cmd.Stderr = stderrBuf
+	}
 
 	cmd.WaitDelay = 1 * time.Second
 
