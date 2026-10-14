@@ -79,7 +79,7 @@ func New(runner TriggerFunc, opts ...Option) *Scheduler {
 		opt(s)
 	}
 
-	s.cron = cron.New(cron.WithParser(s.parser))
+	s.cron = cron.New(cron.WithParser(s.parser), cron.WithChain(cron.Recover(cron.DefaultLogger)))
 	return s
 }
 
@@ -96,14 +96,17 @@ func (s *Scheduler) Start() {
 // Stop halts the cron scheduler and returns a context that completes when running jobs finish.
 func (s *Scheduler) Stop() context.Context {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.running {
-		s.running = false
-		return s.cron.Stop()
+	if !s.running {
+		s.mu.Unlock()
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		return ctx
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	return ctx
+	s.running = false
+	c := s.cron
+	s.mu.Unlock()
+
+	return c.Stop()
 }
 
 // IsRunning reports whether the scheduler is currently active.

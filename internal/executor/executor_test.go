@@ -3,6 +3,8 @@ package executor_test
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"syscall"
@@ -77,6 +79,26 @@ func TestRun_TimeoutCancellation(t *testing.T) {
 	}
 }
 
+func isProcessAlive(pid int) bool {
+	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/status", pid))
+	if err != nil {
+		return false
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		if strings.HasPrefix(line, "State:") {
+			fields := strings.Fields(line)
+			if len(fields) >= 2 {
+				state := fields[1]
+				if state == "Z" || state == "X" {
+					return false
+				}
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func TestRun_ProcessGroupKill(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
@@ -92,11 +114,18 @@ func TestRun_ProcessGroupKill(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to parse child PID %q: %v", pidStr, err)
 	}
-	time.Sleep(50 * time.Millisecond)
-	err = syscall.Kill(pid, 0)
-	if err == nil {
+
+	alive := true
+	for i := 0; i < 10; i++ {
+		time.Sleep(50 * time.Millisecond)
+		if !isProcessAlive(pid) {
+			alive = false
+			break
+		}
+	}
+	if alive {
 		_ = syscall.Kill(pid, syscall.SIGKILL)
-		t.Errorf("child process %d is still alive! Process group kill failed", pid)
+		t.Errorf("child process %d is still actively running! Process group kill failed", pid)
 	}
 }
 

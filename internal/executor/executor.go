@@ -86,7 +86,7 @@ func Run(ctx context.Context, cfg ProcessConfig) (*ExecutionResult, error) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	cmd.Cancel = func() error {
-		if cmd.Process == nil {
+		if cmd.Process == nil || cmd.Process.Pid <= 0 {
 			return nil
 		}
 		return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
