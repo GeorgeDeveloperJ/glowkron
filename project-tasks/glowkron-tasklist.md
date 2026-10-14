@@ -14,9 +14,9 @@
   - [x] Task 1.2: Subprocess Execution with Process Groups & Timeout
   - [x] Task 1.3: SQLite Storage with WAL Mode, Migrations & CRUD
   - [x] Task 1.4: Disk-Backed Run Log Files & In-Memory Pub/Sub Broker
-- [ ] **Phase 2: DAG Workflow Engine & Worker Pool** (1 / 3 complete)
+- [ ] **Phase 2: DAG Workflow Engine & Worker Pool** (2 / 3 complete)
   - [x] Task 2.1: Workflow YAML Parser & Schema Validator
-  - [ ] Task 2.2: DAG Dependency Resolver & Topological Sort
+  - [x] Task 2.2: DAG Dependency Resolver & Topological Sort
   - [ ] Task 2.3: Bounded Worker Pool & Exponential Backoff Engine
 - [ ] **Phase 3: Cron Scheduler & Daemon Lifecycle** (0 / 3 complete)
   - [ ] Task 3.1: Cron Scheduling Integration (`robfig/cron/v3`)
@@ -166,7 +166,7 @@
 
 ---
 
-### [ ] Task 2.2: DAG Dependency Resolver & Topological Sort
+### [x] Task 2.2: DAG Dependency Resolver & Topological Sort
 - **Spec Reference & Quoted Requirements:**
   > "2.2: DAG Dependency Resolver (`internal/dag`):
   > - Directed Acyclic Graph validation using Kahn's Algorithm / DFS.
