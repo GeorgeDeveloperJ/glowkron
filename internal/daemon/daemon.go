@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"sync"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/GeorgeDeveloperJ/glowkron/internal/logger"
 	"github.com/GeorgeDeveloperJ/glowkron/internal/notifier"
 	"github.com/GeorgeDeveloperJ/glowkron/internal/scheduler"
+	"github.com/GeorgeDeveloperJ/glowkron/internal/server"
 	"github.com/GeorgeDeveloperJ/glowkron/internal/store"
 	"github.com/GeorgeDeveloperJ/glowkron/internal/watcher"
 	"github.com/GeorgeDeveloperJ/glowkron/internal/workflow"
@@ -23,6 +25,7 @@ type Config struct {
 	LogsDir         string
 	MaxConcurrency  int
 	ShutdownTimeout time.Duration
+	Port            int
 }
 
 // Daemon coordinates all subsystem services, lifecycle transitions, and graceful termination.
@@ -37,8 +40,10 @@ type Daemon struct {
 	watcher      *watcher.Watcher
 	syncer       *watcher.Syncer
 	dispatcher   *notifier.Dispatcher
+	server       *server.Server
 	coordinator  *ShutdownCoordinator
 	wg           sync.WaitGroup
+	serverWg     sync.WaitGroup
 	ctx          context.Context
 	cancel       context.CancelFunc
 	running      bool
@@ -127,11 +132,20 @@ func New(cfg Config) (*Daemon, error) {
 	}
 	d.watcher = wt
 
+	port := cfg.Port
+	if port <= 0 {
+		port = 8080
+	}
+	d.server = server.New(server.Config{
+		Port:         port,
+		WorkflowsDir: cfg.WorkflowsDir,
+	}, d.store, d.engine, d.appender, d.broker)
+
 	return d, nil
 }
 
 // Start boots the daemon, performs crash recovery, and starts services.
-func (d *Daemon) Start() error {
+func (d *Daemon) Start(ctxs ...context.Context) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -154,6 +168,27 @@ func (d *Daemon) Start() error {
 		return fmt.Errorf("start watcher: %w", err)
 	}
 
+	// 4. Start HTTP server in a managed background goroutine
+	if d.server != nil {
+		d.serverWg.Add(1)
+		go func() {
+			defer d.serverWg.Done()
+			if err := d.server.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				// Server terminated unexpectedly
+			}
+		}()
+	}
+
+	if len(ctxs) > 0 && ctxs[0] != nil {
+		go func() {
+			select {
+			case <-ctxs[0].Done():
+				_ = d.Shutdown()
+			case <-d.ctx.Done():
+			}
+		}()
+	}
+
 	d.running = true
 	return nil
 }
@@ -172,7 +207,7 @@ func (d *Daemon) Run() error {
 }
 
 // Shutdown halts services gracefully within the configured grace period.
-func (d *Daemon) Shutdown() error {
+func (d *Daemon) Shutdown(ctxs ...context.Context) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -181,20 +216,35 @@ func (d *Daemon) Shutdown() error {
 	}
 	d.running = false
 
+	var shutdownCtx context.Context
+	if len(ctxs) > 0 && ctxs[0] != nil {
+		shutdownCtx = ctxs[0]
+	} else {
+		var cancel context.CancelFunc
+		shutdownCtx, cancel = context.WithTimeout(context.Background(), d.cfg.ShutdownTimeout)
+		defer cancel()
+	}
+
 	// Cancel context to stop triggers and abort active process groups
 	d.cancel()
 
-	// 1. Stop directory watcher
+	// 1. Gracefully shutdown HTTP server first for clean drain
+	if d.server != nil {
+		_ = d.server.Shutdown(shutdownCtx)
+		d.serverWg.Wait()
+	}
+
+	// 2. Stop directory watcher
 	_ = d.watcher.Stop()
 
-	// 2. Stop cron scheduler and wait for in-flight ticks
+	// 3. Stop cron scheduler and wait for in-flight ticks
 	schedCtx := d.scheduler.Stop()
 	select {
 	case <-schedCtx.Done():
 	case <-time.After(5 * time.Second):
 	}
 
-	// 3. Wait for in-flight workflows to drain within configured grace period
+	// 4. Wait for in-flight workflows to drain within configured grace period
 	drainCh := make(chan struct{})
 	go func() {
 		d.wg.Wait()
@@ -203,18 +253,18 @@ func (d *Daemon) Shutdown() error {
 
 	select {
 	case <-drainCh:
-	case <-time.After(d.cfg.ShutdownTimeout):
+	case <-shutdownCtx.Done():
 	}
 
-	// 4. Clean up signal coordinator
+	// 5. Clean up signal coordinator
 	d.coordinator.Close()
 
-	// 5. Close webhook dispatcher
+	// 6. Close webhook dispatcher
 	if d.dispatcher != nil {
 		_ = d.dispatcher.Close()
 	}
 
-	// 6. Close database connection
+	// 7. Close database connection
 	_ = d.store.Close()
 
 	return nil
@@ -228,4 +278,9 @@ func (d *Daemon) Store() *store.Store {
 // Scheduler returns the underlying scheduler instance.
 func (d *Daemon) Scheduler() *scheduler.Scheduler {
 	return d.scheduler
+}
+
+// Server returns the underlying HTTP server instance.
+func (d *Daemon) Server() *server.Server {
+	return d.server
 }

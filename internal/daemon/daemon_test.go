@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
@@ -133,11 +134,16 @@ steps:
 		LogsDir:         logsDir,
 		MaxConcurrency:  2,
 		ShutdownTimeout: 2 * time.Second,
+		Port:            18080,
 	}
 
 	d, err := New(cfg)
 	if err != nil {
 		t.Fatalf("failed to initialize daemon: %v", err)
+	}
+
+	if d.Server() == nil {
+		t.Fatal("expected d.Server() to be non-nil")
 	}
 
 	// Start daemon
@@ -155,8 +161,80 @@ steps:
 		t.Fatalf("expected job in database: %v", err)
 	}
 
+	// Verify HTTP server is answering requests
+	time.Sleep(50 * time.Millisecond)
+	resp, err := http.Get("http://localhost:18080/api/health")
+	if err != nil {
+		t.Fatalf("failed to query daemon HTTP server health: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK from server health, got %d", resp.StatusCode)
+	}
+
 	// Shutdown daemon cleanly
 	if err := d.Shutdown(); err != nil {
 		t.Fatalf("unexpected error during shutdown: %v", err)
+	}
+}
+
+func TestDaemonServer_ContextLifecycle(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "daemon_ctx.db")
+	workflowsDir := filepath.Join(tempDir, "workflows")
+	logsDir := filepath.Join(tempDir, "logs")
+
+	if err := os.MkdirAll(workflowsDir, 0755); err != nil {
+		t.Fatalf("failed to create workflows dir: %v", err)
+	}
+
+	cfg := Config{
+		DBPath:          dbPath,
+		WorkflowsDir:    workflowsDir,
+		LogsDir:         logsDir,
+		MaxConcurrency:  2,
+		ShutdownTimeout: 2 * time.Second,
+		Port:            18081,
+	}
+
+	d, err := New(cfg)
+	if err != nil {
+		t.Fatalf("failed to initialize daemon: %v", err)
+	}
+
+	if d.Server() == nil {
+		t.Fatal("expected d.Server() to be non-nil")
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	if err := d.Start(ctx); err != nil {
+		t.Fatalf("failed to start daemon with ctx: %v", err)
+	}
+
+	time.Sleep(50 * time.Millisecond)
+
+	resp, err := http.Get("http://localhost:18081/api/health")
+	if err != nil {
+		t.Fatalf("failed to query server: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	// Drain via Shutdown(ctx)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer shutdownCancel()
+
+	if err := d.Shutdown(shutdownCtx); err != nil {
+		t.Fatalf("failed to shutdown daemon with ctx: %v", err)
+	}
+
+	// Verify server is no longer listening
+	_, err = http.Get("http://localhost:18081/api/health")
+	if err == nil {
+		t.Fatal("expected connection error after server shutdown, got nil")
 	}
 }

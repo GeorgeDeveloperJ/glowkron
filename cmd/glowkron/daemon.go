@@ -44,6 +44,7 @@ cron scheduler, filesystem watcher for declarative YAML workflows, and bounded w
 				LogsDir:         paths.LogsDir,
 				MaxConcurrency:  maxConcurrency,
 				ShutdownTimeout: 15 * time.Second,
+				Port:            cliCtx.Port,
 			}
 
 			d, err := daemon.New(cfg)

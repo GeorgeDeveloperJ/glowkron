@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GlowKron — Background Job & DAG Workflow Orchestrator</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body class="dark-theme">
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+  <div class="app-layout">
+    <!-- Collapsible Responsive Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-logo">
+          <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+        </div>
+        <div class="brand-details">
+          <span class="brand-title">GlowKron</span>
+          <span class="brand-subtitle">DAG Orchestrator</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav" aria-label="Main Navigation">
+        <button class="nav-item active" data-tab="workflows" id="nav-workflows">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          <span class="nav-label">Workflows & DAGs</span>
+          <span class="nav-badge" id="badge-workflows-count">0</span>
+        </button>
+
+        <button class="nav-item" data-tab="runs" id="nav-runs">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          <span class="nav-label">Execution Runs</span>
+          <span class="nav-badge nav-badge-running" id="badge-running-count" style="display:none;">0</span>
+        </button>
+
+        <button class="nav-item" data-tab="terminal" id="nav-terminal">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="4 17 10 11 4 5"></polyline>
+            <line x1="12" y1="19" x2="20" y2="19"></line>
+          </svg>
+          <span class="nav-label">Live Terminal</span>
+          <span class="nav-pulse" id="terminal-live-indicator" style="display:none;" title="Active SSE Stream"></span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="system-status-card">
+          <div class="status-row">
+            <span class="status-dot-pulse" id="sidebar-status-dot"></span>
+            <span class="status-text" id="sidebar-daemon-text">Connecting...</span>
+          </div>
+          <div class="system-meta-row">
+            <span class="meta-label">Workflows Dir:</span>
+            <span class="meta-val" id="sidebar-workflows-dir" title="Workflow configuration directory">~</span>
+          </div>
+          <div class="system-meta-row">
+            <span class="meta-label">Server Time:</span>
+            <span class="meta-val" id="sidebar-server-time">--:--:--</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Wrapper -->
+    <div class="main-wrapper">
+      <!-- Top Header Bar -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <button id="sidebar-toggle-btn" class="icon-btn mobile-only" aria-label="Toggle Sidebar">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
+          <div class="breadcrumb">
+            <span class="breadcrumb-root">GlowKron</span>
+            <span class="breadcrumb-separator">/</span>
+            <h1 class="breadcrumb-current" id="page-context-title">Workflows & DAGs</h1>
+          </div>
+        </div>
+
+        <div class="topbar-right">
+          <!-- Active Run Pill -->
+          <div id="header-active-run" class="active-run-pill" style="display:none;">
+            <span class="pill-dot"></span>
+            <span class="pill-text" id="header-active-run-text">Streaming: run-xxxx</span>
+            <button class="pill-action-btn" id="header-active-run-btn" title="Jump to Terminal">View</button>
+          </div>
+
+          <!-- Refresh Button -->
+          <button id="btn-global-refresh" class="btn btn-secondary btn-sm" title="Refresh Data">
+            <svg class="btn-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            <span>Refresh</span>
+          </button>
+
+          <!-- Daemon Status Badge -->
+          <span id="daemon-status-badge" class="badge badge-online">
+            <span class="status-indicator-dot"></span>
+            <span id="daemon-badge-label">Checking...</span>
+          </span>
+        </div>
+      </header>
+
+      <!-- Main Content Area -->
+      <main class="content-area">
+        <!-- VIEW 1: WORKFLOWS & VISUAL DAG -->
+        <section id="view-workflows" class="view-section active">
+          <!-- Workflows Registry Card -->
+          <div class="card card-glow">
+            <div class="card-header">
+              <div class="card-header-titles">
+                <h2 class="card-title">Registered Workflows</h2>
+                <p class="card-desc">Declarative DAG pipelines loaded from workflows directory</p>
+              </div>
+              <div class="card-header-actions">
+                <span class="badge badge-muted" id="workflow-count-badge">0 workflows</span>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="data-table" id="workflow-table">
+                <thead>
+                  <tr>
+                    <th>Workflow Name</th>
+                    <th>Status</th>
+                    <th>Cron Schedule</th>
+                    <th>Timeout</th>
+                    <th>Description</th>
+                    <th class="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="workflow-table-body">
+                  <tr><td colspan="6" class="table-loading">Loading workflows...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Visual DAG Viewer Card -->
+          <div class="card card-glow" id="dag-viewer-card">
+            <div class="card-header">
+              <div class="card-header-titles">
+                <div class="dag-header-title-row">
+                  <h2 id="dag-title" class="card-title">Visual DAG Viewer</h2>
+                  <span id="dag-run-badge" class="badge badge-pending" style="display:none;"></span>
+                </div>
+                <p id="dag-subtitle" class="card-desc">Inspect step dependency stages and real-time execution states</p>
+              </div>
+
+              <div class="card-header-actions dag-actions">
+                <button id="dag-reset-template-btn" class="btn btn-secondary btn-sm" style="display:none;" title="View baseline workflow template">
+                  Reset to Template
+                </button>
+                <button id="dag-refresh-btn" class="btn btn-secondary btn-sm" title="Refresh DAG status">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                  </svg>
+                  Refresh
+                </button>
+              </div>
+            </div>
+
+            <!-- DAG Status Legend -->
+            <div class="dag-legend">
+              <span class="legend-label">Status:</span>
+              <span class="legend-item"><span class="legend-swatch status-pending"></span> PENDING (Grey)</span>
+              <span class="legend-item"><span class="legend-swatch status-running"></span> RUNNING (Blue Pulse)</span>
+              <span class="legend-item"><span class="legend-swatch status-completed"></span> COMPLETED (Green)</span>
+              <span class="legend-item"><span class="legend-swatch status-failed"></span> FAILED (Red)</span>
+              <span class="legend-item"><span class="legend-swatch status-skipped"></span> SKIPPED (Amber)</span>
+            </div>
+
+            <!-- DAG Stages Container -->
+            <div id="dag-container" class="dag-container">
+              <div class="dag-empty-state">
+                <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="var(--text-muted)" stroke-width="1.5">
+                  <rect x="3" y="3" width="7" height="7"></rect>
+                  <rect x="14" y="3" width="7" height="7"></rect>
+                  <rect x="14" y="14" width="7" height="7"></rect>
+                  <rect x="3" y="14" width="7" height="7"></rect>
+                  <path d="M10 6.5h4M17.5 10v4M6.5 10v4"></path>
+                </svg>
+                <p>Select a workflow above or inspect a run to view its execution graph.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- VIEW 2: EXECUTION RUNS HISTORY -->
+        <section id="view-runs" class="view-section">
+          <!-- Summary Stats Counters -->
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-header">
+                <span class="stat-title">Total Runs</span>
+                <span class="stat-icon-wrapper icon-total">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="8" y1="6" x2="21" y2="6"></line>
+                    <line x1="8" y1="12" x2="21" y2="12"></line>
+                    <line x1="8" y1="18" x2="21" y2="18"></line>
+                    <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                    <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                    <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                  </svg>
+                </span>
+              </div>
+              <div class="stat-value" id="stat-total-runs">0</div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-header">
+                <span class="stat-title">Running</span>
+                <span class="stat-icon-wrapper icon-running">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                  </svg>
+                </span>
+              </div>
+              <div class="stat-value text-blue" id="stat-running-runs">0</div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-header">
+                <span class="stat-title">Completed</span>
+                <span class="stat-icon-wrapper icon-completed">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                </span>
+              </div>
+              <div class="stat-value text-green" id="stat-completed-runs">0</div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-header">
+                <span class="stat-title">Failed</span>
+                <span class="stat-icon-wrapper icon-failed">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </span>
+              </div>
+              <div class="stat-value text-red" id="stat-failed-runs">0</div>
+            </div>
+          </div>
+
+          <!-- Runs Table Card -->
+          <div class="card card-glow">
+            <div class="card-header filter-header">
+              <div class="card-header-titles">
+                <h2 class="card-title">Execution Runs History</h2>
+                <p class="card-desc">Audit trail of automated cron and ad-hoc job executions</p>
+              </div>
+
+              <!-- Filter Controls -->
+              <div class="filter-toolbar">
+                <div class="status-filters" role="group" aria-label="Status filter buttons">
+                  <button class="filter-pill active" data-filter="all">All</button>
+                  <button class="filter-pill" data-filter="running">Running</button>
+                  <button class="filter-pill" data-filter="completed">Completed</button>
+                  <button class="filter-pill" data-filter="failed">Failed</button>
+                </div>
+
+                <div class="search-box">
+                  <svg class="search-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                  </svg>
+                  <input type="text" id="runs-search-input" class="search-input" placeholder="Search Run ID, Job...">
+                  <button id="runs-search-clear" class="search-clear-btn" style="display:none;" title="Clear search">&times;</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="data-table" id="runs-table">
+                <thead>
+                  <tr>
+                    <th>Run ID</th>
+                    <th>Job Name</th>
+                    <th>Status</th>
+                    <th>Triggered By</th>
+                    <th>Started At</th>
+                    <th>Duration</th>
+                    <th class="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="runs-table-body">
+                  <tr><td colspan="7" class="table-loading">Loading execution runs...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- VIEW 3: LIVE TERMINAL LOG CONSOLE -->
+        <section id="view-terminal" class="view-section">
+          <div class="terminal-card">
+            <!-- Terminal Window Chrome -->
+            <div class="terminal-window-header">
+              <div class="terminal-chrome-controls">
+                <span class="chrome-dot dot-red"></span>
+                <span class="chrome-dot dot-yellow"></span>
+                <span class="chrome-dot dot-green"></span>
+              </div>
+
+              <div class="terminal-title-bar">
+                <span class="terminal-title-icon">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="4 17 10 11 4 5"></polyline>
+                    <line x1="12" y1="19" x2="20" y2="19"></line>
+                  </svg>
+                </span>
+                <span id="terminal-run-id" class="terminal-title-text">No active run selected</span>
+                <span id="terminal-conn-status" class="terminal-conn-badge badge-idle">Idle</span>
+              </div>
+
+              <div class="terminal-actions">
+                <button id="inspect-dag-btn" class="terminal-btn" title="Inspect DAG of this Run">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="14" width="7" height="7"></rect>
+                    <rect x="3" y="14" width="7" height="7"></rect>
+                  </svg>
+                  <span>Inspect DAG</span>
+                </button>
+                <button id="copy-terminal-btn" class="terminal-btn" title="Copy logs to clipboard">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                  <span>Copy</span>
+                </button>
+                <button id="clear-terminal-btn" class="terminal-btn" title="Clear console output">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  </svg>
+                  <span>Clear</span>
+                </button>
+                <button id="auto-scroll-toggle" class="terminal-btn terminal-btn-toggle active" title="Toggle Auto-Scroll">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <polyline points="19 12 12 19 5 12"></polyline>
+                  </svg>
+                  <span id="auto-scroll-label">Auto-Scroll: ON</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Terminal Output Buffer -->
+            <pre id="terminal-logs" class="terminal-output" tabindex="0"><span class="log-line log-system">$ glowkron logs waiting for run dispatch... Select a run from 'Execution Runs' or trigger a workflow.</span></pre>
+
+            <!-- Terminal Status Bar -->
+            <div class="terminal-footer">
+              <div class="terminal-footer-left">
+                <span id="terminal-meta-lines">0 lines</span>
+                <span class="terminal-separator">•</span>
+                <span id="terminal-meta-bytes">0 B</span>
+                <span class="terminal-separator">•</span>
+                <span id="terminal-meta-stream-status">Stream: Standby</span>
+              </div>
+              <div class="terminal-footer-right">
+                <span id="terminal-scroll-hint" class="scroll-status-badge">Auto-scrolling</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

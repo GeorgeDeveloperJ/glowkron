@@ -3,7 +3,7 @@
 > **Source Spec:** [`project-specs/glowkron-setup.md`](file:///home/george_santana/Projects/glowkron/project-specs/glowkron-setup.md)  
 > **Architecture Style:** Single-Binary, Zero-CGo, Pure Go Embedded Background Job & DAG Workflow Orchestrator  
 > **Target Path:** `project-tasks/glowkron-tasklist.md`  
-> **Status:** In Progress (Phase 1 active)
+> **Status:** Complete (Phases 1–6 Certified)
 
 ---
 
@@ -27,9 +27,9 @@
   - [x] Task 4.2: Daemon Client & Offline SQLite Fallback
 - [x] **Phase 5: Webhook Notifier** (1 / 1 complete)
   - [x] Task 5.1: Multi-Platform Webhook Dispatcher
-- [ ] **Phase 6: Embedded Web Dashboard & SSE Log Streaming** (0 / 2 complete)
-  - [ ] Task 6.1: REST API & SSE Real-time Streaming Handler
-  - [ ] Task 6.2: Embedded Single-Page Web Dashboard (`//go:embed`)
+- [x] **Phase 6: Embedded Web Dashboard & SSE Log Streaming** (2 / 2 complete)
+  - [x] Task 6.1: REST API & SSE Real-time Streaming Handler
+  - [x] Task 6.2: Embedded Single-Page Web Dashboard (`//go:embed`)
 
 ---
 
@@ -396,7 +396,7 @@
 
 ## Phase 6: Embedded Web Dashboard & SSE Log Streaming
 
-### [ ] Task 6.1: REST API & SSE Real-time Streaming Handler
+### [x] Task 6.1: REST API & SSE Real-time Streaming Handler
 - **Spec Reference & Quoted Requirements:**
   > "6.1: REST API & SSE Handler (`internal/server`):
   > - Endpoints:
@@ -431,7 +431,7 @@
 
 ---
 
-### [ ] Task 6.2: Embedded Single-Page Web Dashboard (`//go:embed`)
+### [x] Task 6.2: Embedded Single-Page Web Dashboard (`//go:embed`)
 - **Spec Reference & Quoted Requirements:**
   > "6.2: Embedded Single-Page Web Dashboard (`internal/server/ui`):
   > - Self-contained HTML/CSS/JS served via `//go:embed`.

@@ -16,3 +16,6 @@ logs/
 # Test Coverage Outputs
 *.out
 coverage.html
+
+# Local Agent Workspace State
+.agents/
