@@ -25,8 +25,8 @@
 - [x] **Phase 4: CLI Interface (`spf13/cobra`)** (2 / 2 complete)
   - [x] Task 4.1: Cobra CLI Command Tree
   - [x] Task 4.2: Daemon Client & Offline SQLite Fallback
-- [ ] **Phase 5: Webhook Notifier** (0 / 1 complete)
-  - [ ] Task 5.1: Multi-Platform Webhook Dispatcher
+- [x] **Phase 5: Webhook Notifier** (1 / 1 complete)
+  - [x] Task 5.1: Multi-Platform Webhook Dispatcher
 - [ ] **Phase 6: Embedded Web Dashboard & SSE Log Streaming** (0 / 2 complete)
   - [ ] Task 6.1: REST API & SSE Real-time Streaming Handler
   - [ ] Task 6.2: Embedded Single-Page Web Dashboard (`//go:embed`)
@@ -360,7 +360,7 @@
 
 ## Phase 5: Webhook Notifier
 
-### [ ] Task 5.1: Multi-Platform Webhook Dispatcher
+### [x] Task 5.1: Multi-Platform Webhook Dispatcher
 - **Spec Reference & Quoted Requirements:**
   > "5.1: Webhook Dispatcher (`internal/notifier`):
   > - Dispatches HTTP POST notifications with formatted JSON payloads.

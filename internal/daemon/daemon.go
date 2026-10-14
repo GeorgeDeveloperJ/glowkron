@@ -9,6 +9,7 @@ import (
 
 	"github.com/GeorgeDeveloperJ/glowkron/internal/engine"
 	"github.com/GeorgeDeveloperJ/glowkron/internal/logger"
+	"github.com/GeorgeDeveloperJ/glowkron/internal/notifier"
 	"github.com/GeorgeDeveloperJ/glowkron/internal/scheduler"
 	"github.com/GeorgeDeveloperJ/glowkron/internal/store"
 	"github.com/GeorgeDeveloperJ/glowkron/internal/watcher"
@@ -35,6 +36,7 @@ type Daemon struct {
 	scheduler    *scheduler.Scheduler
 	watcher      *watcher.Watcher
 	syncer       *watcher.Syncer
+	dispatcher   *notifier.Dispatcher
 	coordinator  *ShutdownCoordinator
 	wg           sync.WaitGroup
 	ctx          context.Context
@@ -73,6 +75,8 @@ func New(cfg Config) (*Daemon, error) {
 
 	broker := logger.NewLogBroker()
 	eng := engine.New(st, appender, broker, cfg.MaxConcurrency)
+	disp := notifier.NewDispatcher()
+	eng.SetNotifier(disp)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -82,6 +86,7 @@ func New(cfg Config) (*Daemon, error) {
 		appender:    appender,
 		broker:      broker,
 		engine:      eng,
+		dispatcher:  disp,
 		coordinator: NewShutdownCoordinator(),
 		ctx:         ctx,
 		cancel:      cancel,
@@ -204,7 +209,12 @@ func (d *Daemon) Shutdown() error {
 	// 4. Clean up signal coordinator
 	d.coordinator.Close()
 
-	// 5. Close database connection
+	// 5. Close webhook dispatcher
+	if d.dispatcher != nil {
+		_ = d.dispatcher.Close()
+	}
+
+	// 6. Close database connection
 	_ = d.store.Close()
 
 	return nil

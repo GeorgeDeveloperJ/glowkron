@@ -14,15 +14,22 @@ import (
 	"github.com/GeorgeDeveloperJ/glowkron/internal/dag"
 	"github.com/GeorgeDeveloperJ/glowkron/internal/executor"
 	"github.com/GeorgeDeveloperJ/glowkron/internal/logger"
+	"github.com/GeorgeDeveloperJ/glowkron/internal/notifier"
 	"github.com/GeorgeDeveloperJ/glowkron/internal/store"
 	"github.com/GeorgeDeveloperJ/glowkron/internal/workflow"
 )
+
+// Notifier defines the interface for dispatching webhook events.
+type Notifier interface {
+	Dispatch(event notifier.Event) bool
+}
 
 // Engine orchestrates end-to-end DAG workflow execution using a bounded worker pool.
 type Engine struct {
 	store          *store.Store
 	appender       *logger.FileAppender
 	broker         *logger.LogBroker
+	notifier       Notifier
 	maxConcurrency int
 }
 
@@ -38,6 +45,11 @@ func New(store *store.Store, appender *logger.FileAppender, broker *logger.LogBr
 		broker:         broker,
 		maxConcurrency: maxConcurrency,
 	}
+}
+
+// SetNotifier configures an optional webhook alert dispatcher.
+func (e *Engine) SetNotifier(n Notifier) {
+	e.notifier = n
 }
 
 // ExecuteWorkflow executes a declarative DAG workflow:
@@ -221,6 +233,34 @@ func (e *Engine) ExecuteWorkflow(ctx context.Context, wf *workflow.WorkflowConfi
 	updatedRun, err := e.store.GetJobRun(context.Background(), runID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to reload finalized job run: %w", err)
+	}
+
+	if e.notifier != nil && wf.Notifications.WebhookURL != "" {
+		codeVal := 0
+		if finalExitCode != nil {
+			codeVal = *finalExitCode
+		}
+		duration := time.Duration(0)
+		if updatedRun.EndTime != nil {
+			duration = updatedRun.EndTime.Sub(updatedRun.StartTime)
+		}
+		eventType := notifier.EventWorkflowCompleted
+		if finalStatus == store.JobRunFailed || finalStatus == store.JobRunCancelled {
+			eventType = notifier.EventWorkflowFailed
+		}
+		e.notifier.Dispatch(notifier.Event{
+			Type:         eventType,
+			Timestamp:    time.Now().UTC(),
+			JobID:        wf.Name,
+			JobName:      wf.Name,
+			RunID:        runID,
+			Status:       finalStatus,
+			ExitCode:     codeVal,
+			Duration:     duration,
+			ErrorMessage: finalErrMsg,
+			WebhookURL:   wf.Notifications.WebhookURL,
+			Config:       wf.Notifications,
+		})
 	}
 
 	if execCtx.Err() != nil {

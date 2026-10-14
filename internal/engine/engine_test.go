@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/GeorgeDeveloperJ/glowkron/internal/logger"
+	"github.com/GeorgeDeveloperJ/glowkron/internal/notifier"
 	"github.com/GeorgeDeveloperJ/glowkron/internal/store"
 	"github.com/GeorgeDeveloperJ/glowkron/internal/workflow"
 )
@@ -423,5 +424,57 @@ func TestTruncateSnippet(t *testing.T) {
 	truncated := truncateSnippet(longStr, 2048)
 	if len(truncated) != 2048 {
 		t.Errorf("expected length 2048, got %d", len(truncated))
+	}
+}
+
+type mockNotifier struct {
+	events []notifier.Event
+}
+
+func (m *mockNotifier) Dispatch(e notifier.Event) bool {
+	m.events = append(m.events, e)
+	return true
+}
+
+func TestExecute_WebhookNotification(t *testing.T) {
+	eng, _, _, _ := setupTestEnvironment(t, 2)
+
+	mock := &mockNotifier{}
+	eng.SetNotifier(mock)
+
+	wf := &workflow.WorkflowConfig{
+		Version: "1",
+		Name:    "notify-wf",
+		Notifications: workflow.NotificationConfig{
+			WebhookURL: "https://example.com/webhook",
+			OnSuccess:  true,
+		},
+		Steps: []workflow.StepConfig{
+			{
+				ID:      "step-1",
+				Command: "echo",
+				Args:    []string{"notification test"},
+			},
+		},
+	}
+
+	run, err := eng.ExecuteWorkflow(context.Background(), wf, store.TriggeredByCLI)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if run.Status != store.JobRunCompleted {
+		t.Fatalf("expected completed status, got %v", run.Status)
+	}
+
+	if len(mock.events) != 1 {
+		t.Fatalf("expected 1 notification event dispatched, got %d", len(mock.events))
+	}
+
+	event := mock.events[0]
+	if event.JobID != "notify-wf" || event.Status != store.JobRunCompleted {
+		t.Errorf("unexpected event payload: %+v", event)
+	}
+	if event.WebhookURL != "https://example.com/webhook" {
+		t.Errorf("expected webhook url https://example.com/webhook, got %s", event.WebhookURL)
 	}
 }
