@@ -18,10 +18,10 @@
   - [x] Task 2.1: Workflow YAML Parser & Schema Validator
   - [x] Task 2.2: DAG Dependency Resolver & Topological Sort
   - [x] Task 2.3: Bounded Worker Pool & Exponential Backoff Engine
-- [ ] **Phase 3: Cron Scheduler & Daemon Lifecycle** (2 / 3 complete)
+- [x] **Phase 3: Cron Scheduler & Daemon Lifecycle** (3 / 3 complete)
   - [x] Task 3.1: Cron Scheduling Integration (`robfig/cron/v3`)
   - [x] Task 3.2: Directory Watcher & Workflow Auto-Sync
-  - [ ] Task 3.3: Daemon Lifecycle, Graceful Shutdown & Crash Recovery
+  - [x] Task 3.3: Daemon Lifecycle, Graceful Shutdown & Crash Recovery
 - [ ] **Phase 4: CLI Interface (`spf13/cobra`)** (0 / 2 complete)
   - [ ] Task 4.1: Cobra CLI Command Tree
   - [ ] Task 4.2: Daemon Client & Offline SQLite Fallback
@@ -267,7 +267,7 @@
 
 ---
 
-### [ ] Task 3.3: Daemon Lifecycle, Graceful Shutdown & Crash Recovery
+### [x] Task 3.3: Daemon Lifecycle, Graceful Shutdown & Crash Recovery
 - **Spec Reference & Quoted Requirements:**
   > "3.3: Daemon Lifecycle & Graceful Shutdown:
   > - Listens for `SIGINT` / `SIGTERM`.
