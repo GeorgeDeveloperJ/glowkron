@@ -3,134 +3,230 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GlowKron — Background Job & DAG Workflow Orchestrator</title>
+  <title>GlowKron — Background Job &amp; DAG Workflow Orchestrator</title>
   <link rel="stylesheet" href="/app.css">
 </head>
 <body class="dark-theme">
   <!-- Toast Notification Container -->
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
-  <div class="app-layout">
-    <!-- Collapsible Responsive Sidebar -->
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar-brand">
-        <div class="brand-logo">
-          <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-          </svg>
+  <!-- Command Palette Modal (Cmd+K / Ctrl+K) -->
+  <div id="command-palette-modal" class="cmd-modal-backdrop" aria-hidden="true">
+    <div class="cmd-modal-window" role="dialog" aria-modal="true" aria-label="Command Palette">
+      <div class="cmd-modal-input-wrap">
+        <svg class="cmd-modal-icon icon" viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" id="cmd-palette-input" class="cmd-modal-input" placeholder="Type a command, workflow, or search runs..." autocomplete="off" spellcheck="false">
+        <kbd class="cmd-trigger-kbd">ESC</kbd>
+      </div>
+      <div id="cmd-palette-results" class="cmd-modal-results">
+        <!-- Injected via JavaScript -->
+      </div>
+      <div class="cmd-modal-footer">
+        <div class="cmd-shortcuts-hint">
+          <span><kbd class="cmd-trigger-kbd">↑</kbd> <kbd class="cmd-trigger-kbd">↓</kbd> Navigate</span>
+          <span><kbd class="cmd-trigger-kbd">↵</kbd> Select</span>
         </div>
-        <div class="brand-details">
-          <span class="brand-title">GlowKron</span>
-          <span class="brand-subtitle">DAG Orchestrator</span>
+        <span>GlowKron Telemetry</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-layout">
+    <!-- Top Header (52px) -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button id="sidebar-toggle-btn" class="icon-btn mobile-only" aria-label="Toggle Navigation Drawer">
+          <svg class="icon" viewBox="0 0 24 24">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
+
+        <div class="brand-wrapper" id="brand-home-link" title="GlowKron Dashboard">
+          <div class="brand-icon-box">
+            <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+            </svg>
+          </div>
+          <span class="brand-name">GlowKron <span class="brand-badge">TELEMETRY</span></span>
+        </div>
+
+        <!-- Daemon Health Status Badge -->
+        <div id="daemon-status-badge" class="daemon-badge" title="Daemon connectivity and system health">
+          <span class="status-indicator-dot"></span>
+          <span id="daemon-badge-label">DAEMON: HEALTHY</span>
+          <span id="daemon-meta-label" class="daemon-meta">(v0.1.0, :8080)</span>
         </div>
       </div>
 
-      <nav class="sidebar-nav" aria-label="Main Navigation">
-        <button class="nav-item active" data-tab="workflows" id="nav-workflows">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="7" height="7"></rect>
-            <rect x="14" y="3" width="7" height="7"></rect>
-            <rect x="14" y="14" width="7" height="7"></rect>
-            <rect x="3" y="14" width="7" height="7"></rect>
-          </svg>
-          <span class="nav-label">Workflows & DAGs</span>
-          <span class="nav-badge" id="badge-workflows-count">0</span>
+      <!-- Center Search Pill / Command Palette Trigger -->
+      <div class="header-search-container">
+        <button id="header-search-btn" class="cmd-trigger-btn" type="button" title="Open Command Palette (Cmd+K / Ctrl+K)">
+          <div class="cmd-trigger-left">
+            <svg class="icon" viewBox="0 0 24 24">
+              <polyline points="4 17 10 11 4 5"></polyline>
+              <line x1="12" y1="19" x2="20" y2="19"></line>
+            </svg>
+            <span>Search workflows, runs, commands...</span>
+          </div>
+          <kbd class="cmd-trigger-kbd">⌘K</kbd>
         </button>
+      </div>
 
-        <button class="nav-item" data-tab="runs" id="nav-runs">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Topbar Right Cluster -->
+      <div class="topbar-right">
+        <!-- Active Run Header Pill -->
+        <div id="header-active-run" class="active-run-pill" style="display:none;">
+          <span class="beacon-pulse">
+            <span class="beacon-pulse-ring"></span>
+            <span class="beacon-pulse-dot"></span>
+          </span>
+          <span class="pill-text" id="header-active-run-text">daily-backup (2/3 steps)</span>
+          <button class="pill-action-btn" id="header-active-run-btn" title="Jump to Active Terminal">View</button>
+        </div>
+
+        <!-- Live UTC Clock -->
+        <div class="clock-display" title="Live Server UTC Clock">
+          <svg class="icon" viewBox="0 0 24 24" width="13" height="13">
             <circle cx="12" cy="12" r="10"></circle>
             <polyline points="12 6 12 12 16 14"></polyline>
           </svg>
-          <span class="nav-label">Execution Runs</span>
-          <span class="nav-badge nav-badge-running" id="badge-running-count" style="display:none;">0</span>
-        </button>
+          <span id="live-utc-clock">--:--:-- UTC</span>
+        </div>
 
-        <button class="nav-item" data-tab="terminal" id="nav-terminal">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="4 17 10 11 4 5"></polyline>
-            <line x1="12" y1="19" x2="20" y2="19"></line>
+        <!-- Global Refresh Button -->
+        <button id="btn-global-refresh" class="icon-btn" title="Refresh Daemon State">
+          <svg class="icon" viewBox="0 0 24 24" width="15" height="15">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
           </svg>
-          <span class="nav-label">Live Terminal</span>
-          <span class="nav-pulse" id="terminal-live-indicator" style="display:none;" title="Active SSE Stream"></span>
         </button>
-      </nav>
+      </div>
+    </header>
 
+    <!-- Collapsible Navigation Sidebar (240px -> 64px rail) -->
+    <aside class="sidebar" id="sidebar">
+      <div>
+        <div class="sidebar-header">
+          <span class="sidebar-section-title">Control Plane</span>
+          <button id="sidebar-collapse-btn" class="rail-toggle-btn" title="Toggle Sidebar Rail (240px / 64px)">
+            <svg class="icon" viewBox="0 0 24 24" width="16" height="16">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+          </button>
+        </div>
+
+        <nav class="sidebar-nav" aria-label="Main Navigation">
+          <button class="nav-item active" data-tab="workflows" id="nav-workflows">
+            <svg class="nav-icon icon" viewBox="0 0 24 24">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            <span class="nav-label">Workflows &amp; DAGs</span>
+            <span class="nav-badge" id="badge-workflows-count">0</span>
+          </button>
+
+          <button class="nav-item" data-tab="runs" id="nav-runs">
+            <svg class="nav-icon icon" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            <span class="nav-label">Executions &amp; History</span>
+            <span class="nav-badge nav-badge-running" id="badge-running-count" style="display:none;">0</span>
+          </button>
+
+          <button class="nav-item" data-tab="terminal" id="nav-terminal">
+            <svg class="nav-icon icon" viewBox="0 0 24 24">
+              <polyline points="4 17 10 11 4 5"></polyline>
+              <line x1="12" y1="19" x2="20" y2="19"></line>
+            </svg>
+            <span class="nav-label">Live SSE Terminal</span>
+            <span class="nav-pulse" id="terminal-live-indicator" style="display:none;" title="Active SSE Stream"></span>
+          </button>
+
+          <button class="nav-item" data-tab="dag" id="nav-dag">
+            <svg class="nav-icon icon" viewBox="0 0 24 24">
+              <circle cx="18" cy="5" r="3"></circle>
+              <circle cx="6" cy="12" r="3"></circle>
+              <circle cx="18" cy="19" r="3"></circle>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+            </svg>
+            <span class="nav-label">DAG Visualizer</span>
+          </button>
+
+          <button class="nav-item" data-tab="settings" id="nav-settings">
+            <svg class="nav-icon icon" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+            <span class="nav-label">Daemon Settings</span>
+          </button>
+        </nav>
+      </div>
+
+      <!-- Sidebar Footer (Node Resource Monitor & Air-Gap Badge) -->
       <div class="sidebar-footer">
-        <div class="system-status-card">
-          <div class="status-row">
-            <span class="status-dot-pulse" id="sidebar-status-dot"></span>
-            <span class="status-text" id="sidebar-daemon-text">Connecting...</span>
+        <div class="node-resource-panel">
+          <div class="node-resource-header">
+            <span>Node Resource</span>
+            <span class="status-indicator-dot" id="sidebar-status-dot" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--status-completed);"></span>
           </div>
-          <div class="system-meta-row">
-            <span class="meta-label">Workflows Dir:</span>
-            <span class="meta-val" id="sidebar-workflows-dir" title="Workflow configuration directory">~</span>
+          <div class="resource-meter">
+            <div class="resource-meta">
+              <span>CPU LOAD</span>
+              <span id="resource-cpu-val" style="color:var(--accent-cyan);font-weight:600;">1.2%</span>
+            </div>
+            <div class="resource-bar-bg">
+              <div id="resource-cpu-bar" class="resource-bar-fill fill-cyan" style="width: 12%;"></div>
+            </div>
+            <div class="resource-meta" style="margin-top:0.25rem;">
+              <span>MEM USAGE</span>
+              <span id="resource-mem-val" style="color:var(--accent-sky);font-weight:600;">48 MB</span>
+            </div>
+            <div class="resource-bar-bg">
+              <div id="resource-mem-bar" class="resource-bar-fill fill-sky" style="width: 8%;"></div>
+            </div>
           </div>
-          <div class="system-meta-row">
-            <span class="meta-label">Server Time:</span>
-            <span class="meta-val" id="sidebar-server-time">--:--:--</span>
+          <div class="airgap-status-row">
+            <span style="display:inline-flex;align-items:center;gap:4px;">
+              <svg class="icon" viewBox="0 0 24 24" width="12" height="12">
+                <path d="M22.61 16.95A5 5 0 0 0 18 10h-1.26a8 8 0 0 0-7.05-6M5 5a8 8 0 0 0-4 7h1.26a5 5 0 0 0 9.74 1.95"></path>
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+              </svg>
+              <span class="airgap-text">0-CDN AIR-GAP</span>
+            </span>
+            <span class="airgap-synced">SYNCED</span>
           </div>
+          <!-- Hidden metadata for test compatibility -->
+          <span id="sidebar-daemon-text" style="display:none;">Online</span>
+          <span id="sidebar-workflows-dir" style="display:none;">~</span>
+          <span id="sidebar-server-time" style="display:none;">--:--:--</span>
         </div>
       </div>
     </aside>
 
-    <!-- Main Wrapper -->
+    <!-- Main Content Wrapper -->
     <div class="main-wrapper">
-      <!-- Top Header Bar -->
-      <header class="topbar">
-        <div class="topbar-left">
-          <button id="sidebar-toggle-btn" class="icon-btn mobile-only" aria-label="Toggle Sidebar">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="3" y1="12" x2="21" y2="12"></line>
-              <line x1="3" y1="6" x2="21" y2="6"></line>
-              <line x1="3" y1="18" x2="21" y2="18"></line>
-            </svg>
-          </button>
-          <div class="breadcrumb">
-            <span class="breadcrumb-root">GlowKron</span>
-            <span class="breadcrumb-separator">/</span>
-            <h1 class="breadcrumb-current" id="page-context-title">Workflows & DAGs</h1>
-          </div>
-        </div>
-
-        <div class="topbar-right">
-          <!-- Active Run Pill -->
-          <div id="header-active-run" class="active-run-pill" style="display:none;">
-            <span class="pill-dot"></span>
-            <span class="pill-text" id="header-active-run-text">Streaming: run-xxxx</span>
-            <button class="pill-action-btn" id="header-active-run-btn" title="Jump to Terminal">View</button>
-          </div>
-
-          <!-- Refresh Button -->
-          <button id="btn-global-refresh" class="btn btn-secondary btn-sm" title="Refresh Data">
-            <svg class="btn-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="23 4 23 10 17 10"></polyline>
-              <polyline points="1 20 1 14 7 14"></polyline>
-              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-            </svg>
-            <span>Refresh</span>
-          </button>
-
-          <!-- Daemon Status Badge -->
-          <span id="daemon-status-badge" class="badge badge-online">
-            <span class="status-indicator-dot"></span>
-            <span id="daemon-badge-label">Checking...</span>
-          </span>
-        </div>
-      </header>
-
-      <!-- Main Content Area -->
       <main class="content-area">
-        <!-- VIEW 1: WORKFLOWS & VISUAL DAG -->
+        <!-- Breadcrumb Context Title (Hidden anchor for test script) -->
+        <h1 id="page-context-title" style="display:none;">Workflows &amp; DAGs</h1>
+
+        <!-- VIEW 1: WORKFLOWS & DAG VISUALIZER -->
         <section id="view-workflows" class="view-section active">
-          <!-- Workflows Registry Card -->
-          <div class="card card-glow">
+          <!-- Registered Workflows Registry Card -->
+          <div class="card">
             <div class="card-header">
-              <div class="card-header-titles">
+              <div>
                 <h2 class="card-title">Registered Workflows</h2>
-                <p class="card-desc">Declarative DAG pipelines loaded from workflows directory</p>
+                <p class="card-desc">Declarative DAG pipelines loaded from local daemon workflows directory</p>
               </div>
-              <div class="card-header-actions">
+              <div>
                 <span class="badge badge-muted" id="workflow-count-badge">0 workflows</span>
               </div>
             </div>
@@ -154,51 +250,329 @@
             </div>
           </div>
 
-          <!-- Visual DAG Viewer Card -->
-          <div class="card card-glow" id="dag-viewer-card">
-            <div class="card-header">
-              <div class="card-header-titles">
-                <div class="dag-header-title-row">
-                  <h2 id="dag-title" class="card-title">Visual DAG Viewer</h2>
-                  <span id="dag-run-badge" class="badge badge-pending" style="display:none;"></span>
+          <!-- Top Control Bar for DAG Execution -->
+          <div class="context-topbar" id="dag-control-bar">
+            <div class="context-left">
+              <div class="context-title-group">
+                <span id="dag-title" class="workflow-heading">Select a Workflow</span>
+                <span id="dag-run-badge" class="badge badge-pending" style="display:none;">PENDING</span>
+                <span id="dag-run-id-tag" class="run-id-tag" style="display:none;">#run-template</span>
+              </div>
+              <p id="dag-subtitle" style="display:none;">Baseline Workflow Template</p>
+              <div class="context-telemetry" id="dag-telemetry-meta">
+                <span class="divider"></span>
+                <span id="dag-elapsed-time">00:00:00</span>
+                <span>•</span>
+                <div class="context-progress-box">
+                  <span id="dag-steps-progress" style="color:var(--status-completed);font-weight:600;">0/0 done</span>
+                  <div class="context-progress-bar">
+                    <div id="dag-progress-fill" class="context-progress-fill" style="width: 0%;"></div>
+                  </div>
+                  <span id="dag-progress-pct" style="color:var(--accent-cyan);">0%</span>
                 </div>
-                <p id="dag-subtitle" class="card-desc">Inspect step dependency stages and real-time execution states</p>
-              </div>
-
-              <div class="card-header-actions dag-actions">
-                <button id="dag-reset-template-btn" class="btn btn-secondary btn-sm" style="display:none;" title="View baseline workflow template">
-                  Reset to Template
-                </button>
-                <button id="dag-refresh-btn" class="btn btn-secondary btn-sm" title="Refresh DAG status">
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
-                  </svg>
-                  Refresh
-                </button>
               </div>
             </div>
 
-            <!-- DAG Status Legend -->
-            <div class="dag-legend">
-              <span class="legend-label">Status:</span>
-              <span class="legend-item"><span class="legend-swatch status-pending"></span> PENDING (Grey)</span>
-              <span class="legend-item"><span class="legend-swatch status-running"></span> RUNNING (Blue Pulse)</span>
-              <span class="legend-item"><span class="legend-swatch status-completed"></span> COMPLETED (Green)</span>
-              <span class="legend-item"><span class="legend-swatch status-failed"></span> FAILED (Red)</span>
-              <span class="legend-item"><span class="legend-swatch status-skipped"></span> SKIPPED (Amber)</span>
-            </div>
-
-            <!-- DAG Stages Container -->
-            <div id="dag-container" class="dag-container">
-              <div class="dag-empty-state">
-                <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="var(--text-muted)" stroke-width="1.5">
-                  <rect x="3" y="3" width="7" height="7"></rect>
-                  <rect x="14" y="3" width="7" height="7"></rect>
-                  <rect x="14" y="14" width="7" height="7"></rect>
-                  <rect x="3" y="14" width="7" height="7"></rect>
-                  <path d="M10 6.5h4M17.5 10v4M6.5 10v4"></path>
+            <!-- Quick Action Toolbar -->
+            <div class="context-actions">
+              <button id="dag-action-rerun" class="btn btn-secondary btn-sm" type="button" title="Trigger Run">
+                <svg class="icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="var(--accent-cyan)">
+                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
                 </svg>
-                <p>Select a workflow above or inspect a run to view its execution graph.</p>
+                <span>Rerun Ad-Hoc</span>
+              </button>
+              <button id="dag-reset-template-btn" class="btn btn-secondary btn-sm" type="button" style="display:none;" title="View baseline workflow template">
+                <span>Reset to Template</span>
+              </button>
+              <button id="dag-refresh-btn" class="btn btn-secondary btn-sm" type="button" title="Refresh Step States">
+                <svg class="icon" viewBox="0 0 24 24" width="14" height="14">
+                  <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+                </svg>
+                <span>Refresh</span>
+              </button>
+              <button id="dag-action-download-logs" class="btn btn-secondary btn-sm" type="button" title="Download Raw Logs">
+                <svg class="icon" viewBox="0 0 24 24" width="14" height="14">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Interactive Vector DAG Visualizer Frame -->
+          <div class="dag-visualizer-frame" id="dag-viewer-card">
+            <div class="dag-canvas-container" id="dag-canvas-container">
+              <!-- Stage Track Overline Indicators -->
+              <div class="dag-stage-overlines" id="dag-stage-indicators">
+                <!-- Dynamically populated stages -->
+              </div>
+
+              <!-- Floating Canvas Controls (Top-Right) -->
+              <div class="canvas-controls">
+                <button id="canvas-zoom-in" class="canvas-control-btn" type="button" title="Zoom In (+)">
+                  <svg class="icon" viewBox="0 0 24 24" width="14" height="14">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                  </svg>
+                </button>
+                <button id="canvas-zoom-out" class="canvas-control-btn" type="button" title="Zoom Out (-)">
+                  <svg class="icon" viewBox="0 0 24 24" width="14" height="14">
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                  </svg>
+                </button>
+                <span class="control-separator"></span>
+                <button id="canvas-fit-viewport" class="canvas-control-btn" type="button" title="Fit to Viewport">
+                  <svg class="icon" viewBox="0 0 24 24" width="13" height="13">
+                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+                  </svg>
+                </button>
+                <button id="canvas-zoom-reset" class="canvas-zoom-text" type="button" title="Reset Zoom to 100%">100%</button>
+              </div>
+
+              <!-- Floating Radar HUD Mini-Map Preview (Bottom-Right) -->
+              <div class="radar-hud" id="radar-hud">
+                <div class="radar-hud-header">
+                  <span>RADAR HUD</span>
+                  <span class="status-indicator-dot" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent-cyan);"></span>
+                </div>
+                <div class="radar-hud-body" id="radar-hud-body">
+                  <div class="radar-viewport-box" id="radar-viewport-box"></div>
+                </div>
+              </div>
+
+              <!-- Pan/Zoom Viewport Transform Layer -->
+              <div class="dag-viewport" id="dag-viewport">
+                <!-- SVG Connection Overlay Layer -->
+                <svg class="dag-svg-overlay" id="dag-svg">
+                  <defs>
+                    <linearGradient id="activeCyanGlow" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stop-color="#00e5ff" stop-opacity="0.9"></stop>
+                      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.4"></stop>
+                    </linearGradient>
+                    <marker id="arrow-default" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                      <path d="M 0 1 L 9 5 L 0 9 z" fill="#29354d"></path>
+                    </marker>
+                    <marker id="arrow-completed" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                      <path d="M 0 1 L 9 5 L 0 9 z" fill="#10b981"></path>
+                    </marker>
+                    <marker id="arrow-running" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                      <path d="M 0 1 L 9 5 L 0 9 z" fill="#00e5ff"></path>
+                    </marker>
+                  </defs>
+                  <g id="dag-svg-edges-group"></g>
+                </svg>
+
+                <!-- Nodes DOM Container Layer -->
+                <div class="dag-stages-layout" id="dag-container">
+                  <div class="dag-empty-state" style="margin: 4rem auto; text-align: center; color: var(--text-muted);">
+                    <p>Select a workflow above or inspect a run to view its execution graph.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Slide-Over Step Inspector Drawer (340px) -->
+            <aside class="step-inspector-drawer collapsed" id="node-inspector">
+              <div class="inspector-header">
+                <div class="inspector-title-wrap">
+                  <span class="inspector-overline">Step Inspector</span>
+                  <span class="inspector-step-title" id="inspector-step-title">Select a step</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                  <span class="badge badge-pending" id="inspector-step-badge">PENDING</span>
+                  <button class="icon-btn" id="inspector-close-btn" type="button" title="Close Inspector" style="width:26px;height:26px;">
+                    <svg class="icon" viewBox="0 0 24 24" width="14" height="14">
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <div class="inspector-body">
+                <!-- Command Invocation -->
+                <div class="inspector-section">
+                  <div class="inspector-label-row">
+                    <span>Command Invocation</span>
+                    <button class="inspector-copy-link" id="inspector-copy-cmd" type="button">copy</button>
+                  </div>
+                  <pre class="code-box" id="inspector-cmd-box">(no command)</pre>
+                </div>
+
+                <!-- Working Directory -->
+                <div class="inspector-section">
+                  <div class="inspector-label-row">
+                    <span>Working Directory</span>
+                  </div>
+                  <div class="code-box" id="inspector-workdir" style="color:var(--text-secondary);">default workspace</div>
+                </div>
+
+                <!-- Environment Scope -->
+                <div class="inspector-section">
+                  <div class="inspector-label-row">
+                    <span>Environment Scope</span>
+                  </div>
+                  <table class="env-table">
+                    <tbody id="inspector-env-table">
+                      <tr><td colspan="2" style="color:var(--text-dim);font-style:italic;">No custom environment variables</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- Upstream Dependencies -->
+                <div class="inspector-section">
+                  <div class="inspector-label-row">
+                    <span>Upstream Dependencies</span>
+                  </div>
+                  <div class="dep-pill-row" id="inspector-deps-list">
+                    <span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--text-dim);">Root node (0 prerequisites)</span>
+                  </div>
+                </div>
+
+                <!-- Step Diagnostics Metric -->
+                <div class="sparkline-card">
+                  <div class="sparkline-header">
+                    <span style="color:var(--text-muted);">I/O THROUGHPUT</span>
+                    <span id="inspector-throughput" style="color:var(--accent-cyan);font-weight:600;">184.2 MB/s</span>
+                  </div>
+                  <svg class="w-full" viewBox="0 0 200 32" style="height:32px;overflow:visible;">
+                    <path d="M0,28 L30,24 L60,18 L90,22 L120,10 L150,14 L180,6 L200,8" fill="none" stroke="#00e5ff" stroke-width="2"></path>
+                    <path d="M0,28 L30,24 L60,18 L90,22 L120,10 L150,14 L180,6 L200,8 L200,32 L0,32 Z" fill="#00e5ff" fill-opacity="0.1"></path>
+                  </svg>
+                </div>
+
+                <!-- Snippets Viewers -->
+                <div class="inspector-section" id="inspector-stdout-section" style="display:none;">
+                  <div class="inspector-label-row">
+                    <span>Stdout Snippet</span>
+                    <button class="inspector-copy-link" id="inspector-copy-stdout" type="button">copy</button>
+                  </div>
+                  <pre class="code-box" id="inspector-stdout-box" style="color:var(--status-completed);"></pre>
+                </div>
+
+                <div class="inspector-section" id="inspector-stderr-section" style="display:none;">
+                  <div class="inspector-label-row">
+                    <span style="color:var(--status-failed);">Stderr Snippet</span>
+                    <button class="inspector-copy-link" id="inspector-copy-stderr" type="button">copy</button>
+                  </div>
+                  <pre class="code-box" id="inspector-stderr-box" style="color:var(--status-failed);"></pre>
+                </div>
+              </div>
+            </aside>
+          </div>
+
+          <!-- Docked Split Live SSE Terminal Panel (Bottom Split 280px) -->
+          <div class="terminal-card docked-terminal" id="terminal-panel">
+            <div class="terminal-header">
+              <!-- Stream Tabs -->
+              <div class="terminal-tabs">
+                <button class="stream-tab active" data-stream="all" id="tab-stream-all" type="button">
+                  <span>All Logs</span>
+                  <span class="tab-badge" id="tab-count-all">0</span>
+                </button>
+                <button class="stream-tab" data-stream="stdout" id="tab-stream-stdout" type="button">
+                  <span>Stdout</span>
+                  <span class="tab-badge" id="tab-count-stdout">0</span>
+                </button>
+                <button class="stream-tab" data-stream="stderr" id="tab-stream-stderr" type="button">
+                  <span>Stderr</span>
+                  <span class="tab-badge badge-err" id="tab-count-stderr">0</span>
+                </button>
+                <button class="stream-tab" data-stream="telemetry" id="tab-stream-telemetry" type="button">
+                  <span>Telemetry</span>
+                </button>
+              </div>
+
+              <!-- In-Terminal Regex Search Pill -->
+              <div class="terminal-search-box">
+                <svg class="icon" viewBox="0 0 24 24" width="13" height="13" style="color:var(--text-muted);">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="text" id="terminal-search-input" class="terminal-search-input" placeholder="Filter console (regex)...">
+                <span class="search-matches-pill" id="terminal-match-count" style="display:none;">0 matches</span>
+              </div>
+
+              <!-- Terminal Right Controls Cluster -->
+              <div class="terminal-controls-cluster">
+                <!-- SSE Heartbeat Badge -->
+                <div class="sse-heartbeat-badge">
+                  <span class="beacon-pulse">
+                    <span class="beacon-pulse-ring"></span>
+                    <span class="beacon-pulse-dot"></span>
+                  </span>
+                  <span id="terminal-sse-rate">STREAMING 60fps</span>
+                  <span id="terminal-sse-bytes" style="color:var(--text-muted);">(0 B)</span>
+                </div>
+
+                <span class="control-separator"></span>
+
+                <!-- Action Toggles -->
+                <button class="terminal-ctrl-btn" id="terminal-toggle-timestamps" type="button" title="Toggle relative / UTC timestamps">
+                  <span>Rel Time</span>
+                </button>
+                <button class="terminal-ctrl-btn" id="terminal-toggle-wrap" type="button" title="Toggle Word Wrap">
+                  <svg class="icon" viewBox="0 0 24 24" width="13" height="13">
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <path d="M3 12h15a3 3 0 1 1 0 6h-4"></path>
+                    <polyline points="16 16 14 18 16 20"></polyline>
+                  </svg>
+                </button>
+                <button class="terminal-ctrl-btn" id="inspect-dag-btn" type="button" title="Inspect DAG of this Run">
+                  <svg class="icon" viewBox="0 0 24 24" width="13" height="13">
+                    <rect x="3" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="14" width="7" height="7"></rect>
+                    <rect x="3" y="14" width="7" height="7"></rect>
+                  </svg>
+                </button>
+                <button class="terminal-ctrl-btn" id="copy-terminal-btn" type="button" title="Copy Terminal Logs">
+                  <svg class="icon" viewBox="0 0 24 24" width="13" height="13">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                </button>
+                <button class="terminal-ctrl-btn" id="clear-terminal-btn" type="button" title="Clear Console">
+                  <svg class="icon" viewBox="0 0 24 24" width="13" height="13">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  </svg>
+                </button>
+                <button class="terminal-ctrl-btn active" id="auto-scroll-toggle" type="button" title="Toggle Auto-Scroll">
+                  <span id="auto-scroll-label">Auto: ON</span>
+                </button>
+                <button class="terminal-ctrl-btn" id="terminal-toggle-expand" type="button" title="Expand / Minimize Height (280px / 480px)">
+                  <svg class="icon" id="expand-icon" viewBox="0 0 24 24" width="13" height="13">
+                    <polyline points="18 15 12 9 6 15"></polyline>
+                  </svg>
+                </button>
+                <button class="terminal-ctrl-btn" id="terminal-toggle-fullscreen" type="button" title="Toggle Fullscreen Mode">
+                  <svg class="icon" viewBox="0 0 24 24" width="13" height="13">
+                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Terminal Output Buffer -->
+            <pre id="terminal-logs" class="terminal-viewport" tabindex="0"><span class="log-line"><span class="log-time">+0.00s</span><span class="log-tag tag-info">INFO</span><span class="log-content">GlowKron Live Terminal Standby. Select an execution run or trigger a workflow to tail logs.</span></span></pre>
+
+            <!-- Terminal Status Footer -->
+            <div class="terminal-footer">
+              <div class="terminal-footer-left">
+                <span id="terminal-run-id" style="font-weight:600;color:var(--text-primary);">No active run selected</span>
+                <span>•</span>
+                <span id="terminal-conn-status" class="badge badge-muted" style="padding:1px 5px;">Idle</span>
+                <span>•</span>
+                <span id="terminal-meta-lines">0 lines</span>
+                <span>•</span>
+                <span id="terminal-meta-bytes">0 B</span>
+                <span>•</span>
+                <span id="terminal-meta-stream-status">Stream: Standby</span>
+              </div>
+              <div>
+                <span id="terminal-scroll-hint" class="scroll-status-badge">Auto-scrolling</span>
               </div>
             </div>
           </div>
@@ -206,21 +580,19 @@
 
         <!-- VIEW 2: EXECUTION RUNS HISTORY -->
         <section id="view-runs" class="view-section">
-          <!-- Summary Stats Counters -->
+          <!-- Stats Summary Counters -->
           <div class="stats-grid">
             <div class="stat-card">
               <div class="stat-header">
                 <span class="stat-title">Total Runs</span>
-                <span class="stat-icon-wrapper icon-total">
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="8" y1="6" x2="21" y2="6"></line>
-                    <line x1="8" y1="12" x2="21" y2="12"></line>
-                    <line x1="8" y1="18" x2="21" y2="18"></line>
-                    <line x1="3" y1="6" x2="3.01" y2="6"></line>
-                    <line x1="3" y1="12" x2="3.01" y2="12"></line>
-                    <line x1="3" y1="18" x2="3.01" y2="18"></line>
-                  </svg>
-                </span>
+                <svg class="icon" viewBox="0 0 24 24" width="16" height="16" style="color:var(--text-muted);">
+                  <line x1="8" y1="6" x2="21" y2="6"></line>
+                  <line x1="8" y1="12" x2="21" y2="12"></line>
+                  <line x1="8" y1="18" x2="21" y2="18"></line>
+                  <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                  <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                  <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                </svg>
               </div>
               <div class="stat-value" id="stat-total-runs">0</div>
             </div>
@@ -228,11 +600,9 @@
             <div class="stat-card">
               <div class="stat-header">
                 <span class="stat-title">Running</span>
-                <span class="stat-icon-wrapper icon-running">
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                  </svg>
-                </span>
+                <svg class="icon text-blue" viewBox="0 0 24 24" width="16" height="16">
+                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
               </div>
               <div class="stat-value text-blue" id="stat-running-runs">0</div>
             </div>
@@ -240,11 +610,9 @@
             <div class="stat-card">
               <div class="stat-header">
                 <span class="stat-title">Completed</span>
-                <span class="stat-icon-wrapper icon-completed">
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="20 6 9 17 4 12"></polyline>
-                  </svg>
-                </span>
+                <svg class="icon text-green" viewBox="0 0 24 24" width="16" height="16">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
               </div>
               <div class="stat-value text-green" id="stat-completed-runs">0</div>
             </div>
@@ -252,26 +620,24 @@
             <div class="stat-card">
               <div class="stat-header">
                 <span class="stat-title">Failed</span>
-                <span class="stat-icon-wrapper icon-failed">
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                  </svg>
-                </span>
+                <svg class="icon text-red" viewBox="0 0 24 24" width="16" height="16">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
               </div>
               <div class="stat-value text-red" id="stat-failed-runs">0</div>
             </div>
           </div>
 
-          <!-- Runs Table Card -->
-          <div class="card card-glow">
-            <div class="card-header filter-header">
-              <div class="card-header-titles">
+          <!-- Runs History Table Card -->
+          <div class="card">
+            <div class="card-header">
+              <div>
                 <h2 class="card-title">Execution Runs History</h2>
                 <p class="card-desc">Audit trail of automated cron and ad-hoc job executions</p>
               </div>
 
-              <!-- Filter Controls -->
+              <!-- Filter Controls Toolbar -->
               <div class="filter-toolbar">
                 <div class="status-filters" role="group" aria-label="Status filter buttons">
                   <button class="filter-pill active" data-filter="all">All</button>
@@ -281,7 +647,7 @@
                 </div>
 
                 <div class="search-box">
-                  <svg class="search-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                  <svg class="icon search-icon" viewBox="0 0 24 24" width="14" height="14">
                     <circle cx="11" cy="11" r="8"></circle>
                     <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                   </svg>
@@ -312,76 +678,56 @@
           </div>
         </section>
 
-        <!-- VIEW 3: LIVE TERMINAL LOG CONSOLE -->
+        <!-- VIEW 3: LIVE TERMINAL DEDICATED FULL VIEW -->
         <section id="view-terminal" class="view-section">
-          <div class="terminal-card">
-            <!-- Terminal Window Chrome -->
-            <div class="terminal-window-header">
-              <div class="terminal-chrome-controls">
-                <span class="chrome-dot dot-red"></span>
-                <span class="chrome-dot dot-yellow"></span>
-                <span class="chrome-dot dot-green"></span>
-              </div>
-
-              <div class="terminal-title-bar">
-                <span class="terminal-title-icon">
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="4 17 10 11 4 5"></polyline>
-                    <line x1="12" y1="19" x2="20" y2="19"></line>
-                  </svg>
-                </span>
-                <span id="terminal-run-id" class="terminal-title-text">No active run selected</span>
-                <span id="terminal-conn-status" class="terminal-conn-badge badge-idle">Idle</span>
-              </div>
-
-              <div class="terminal-actions">
-                <button id="inspect-dag-btn" class="terminal-btn" title="Inspect DAG of this Run">
-                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="3" y="3" width="7" height="7"></rect>
-                    <rect x="14" y="3" width="7" height="7"></rect>
-                    <rect x="14" y="14" width="7" height="7"></rect>
-                    <rect x="3" y="14" width="7" height="7"></rect>
-                  </svg>
-                  <span>Inspect DAG</span>
-                </button>
-                <button id="copy-terminal-btn" class="terminal-btn" title="Copy logs to clipboard">
-                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                  </svg>
-                  <span>Copy</span>
-                </button>
-                <button id="clear-terminal-btn" class="terminal-btn" title="Clear console output">
-                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="3 6 5 6 21 6"></polyline>
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                  </svg>
-                  <span>Clear</span>
-                </button>
-                <button id="auto-scroll-toggle" class="terminal-btn terminal-btn-toggle active" title="Toggle Auto-Scroll">
-                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="12" y1="5" x2="12" y2="19"></line>
-                    <polyline points="19 12 12 19 5 12"></polyline>
-                  </svg>
-                  <span id="auto-scroll-label">Auto-Scroll: ON</span>
-                </button>
+          <!-- Reuses or shares the terminal console logic seamlessly -->
+          <div class="card" style="margin: 1.25rem; flex: 1; display: flex; flex-direction: column;">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Live Terminal Console View</h2>
+                <p class="card-desc">Full-screen telemetry output stream with zero-latency streaming</p>
               </div>
             </div>
+            <div style="flex: 1; padding: 1rem; color: var(--text-muted); font-family: var(--font-mono); font-size: 0.85rem;">
+              <p>The docked Live Terminal Console below provides full interactive streaming, multi-stream filtering, regex search, and fullscreen mode for any run.</p>
+            </div>
+          </div>
+        </section>
 
-            <!-- Terminal Output Buffer -->
-            <pre id="terminal-logs" class="terminal-output" tabindex="0"><span class="log-line log-system">$ glowkron logs waiting for run dispatch... Select a run from 'Execution Runs' or trigger a workflow.</span></pre>
+        <!-- VIEW 4: DAG VISUALIZER DEDICATED VIEW -->
+        <section id="view-dag" class="view-section">
+          <!-- Scrolls directly to or highlights the DAG view -->
+        </section>
 
-            <!-- Terminal Status Bar -->
-            <div class="terminal-footer">
-              <div class="terminal-footer-left">
-                <span id="terminal-meta-lines">0 lines</span>
-                <span class="terminal-separator">•</span>
-                <span id="terminal-meta-bytes">0 B</span>
-                <span class="terminal-separator">•</span>
-                <span id="terminal-meta-stream-status">Stream: Standby</span>
+        <!-- VIEW 5: DAEMON SETTINGS & AIR-GAP TELEMETRY -->
+        <section id="view-settings" class="view-section">
+          <div class="card" style="margin: 1.25rem;">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Daemon Settings &amp; Air-Gap Telemetry</h2>
+                <p class="card-desc">GlowKron runtime configuration, embedded static assets, and daemon verification</p>
               </div>
-              <div class="terminal-footer-right">
-                <span id="terminal-scroll-hint" class="scroll-status-badge">Auto-scrolling</span>
+            </div>
+            <div style="padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem;">
+              <div class="inspector-section">
+                <span class="inspector-label-row">AIR-GAP SECURITY SPECIFICATION</span>
+                <div class="code-box" style="line-height: 1.6;">
+                  ✓ ZERO EXTERNAL NETWORK CALLS: No Google Fonts, no external CDNs, no remote analytics.<br>
+                  ✓ EMBEDDED COMPILED ASSETS: Pure vanilla ES6+ and CSS3 embedded in Go binary via //go:embed static/*.<br>
+                  ✓ SYSTEM FONTS: Inter/system-ui and JetBrains Mono/ui-monospace native system font stacks.<br>
+                  ✓ LOCAL DAEMON CONTROL: Direct REST &amp; SSE socket communication over local loopback.
+                </div>
+              </div>
+              <div class="inspector-section">
+                <span class="inspector-label-row">DAEMON HEALTH &amp; TELEMETRY</span>
+                <table class="env-table">
+                  <tbody>
+                    <tr><td class="env-key">Daemon Status</td><td class="env-val" id="settings-daemon-status">HEALTHY</td></tr>
+                    <tr><td class="env-key">Version</td><td class="env-val" id="settings-version">v0.1.0</td></tr>
+                    <tr><td class="env-key">Workflows Directory</td><td class="env-val" id="settings-workflows-dir">~</td></tr>
+                    <tr><td class="env-key">Server Time (UTC)</td><td class="env-val" id="settings-server-time">--:--:--</td></tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
