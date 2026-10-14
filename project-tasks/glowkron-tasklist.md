@@ -18,8 +18,8 @@
   - [x] Task 2.1: Workflow YAML Parser & Schema Validator
   - [x] Task 2.2: DAG Dependency Resolver & Topological Sort
   - [x] Task 2.3: Bounded Worker Pool & Exponential Backoff Engine
-- [ ] **Phase 3: Cron Scheduler & Daemon Lifecycle** (0 / 3 complete)
-  - [ ] Task 3.1: Cron Scheduling Integration (`robfig/cron/v3`)
+- [ ] **Phase 3: Cron Scheduler & Daemon Lifecycle** (1 / 3 complete)
+  - [x] Task 3.1: Cron Scheduling Integration (`robfig/cron/v3`)
   - [ ] Task 3.2: Directory Watcher & Workflow Auto-Sync
   - [ ] Task 3.3: Daemon Lifecycle, Graceful Shutdown & Crash Recovery
 - [ ] **Phase 4: CLI Interface (`spf13/cobra`)** (0 / 2 complete)
@@ -220,7 +220,7 @@
 
 ## Phase 3: Cron Scheduler & Daemon Lifecycle
 
-### [ ] Task 3.1: Cron Scheduling Integration (`robfig/cron/v3`)
+### [x] Task 3.1: Cron Scheduling Integration (`robfig/cron/v3`)
 - **Spec Reference & Quoted Requirements:**
   > "3.1: Cron Scheduler (`internal/scheduler`):
   > - Integration with `robfig/cron/v3`.
