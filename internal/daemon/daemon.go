@@ -36,6 +36,7 @@ type Daemon struct {
 	watcher      *watcher.Watcher
 	syncer       *watcher.Syncer
 	coordinator  *ShutdownCoordinator
+	wg           sync.WaitGroup
 	ctx          context.Context
 	cancel       context.CancelFunc
 	running      bool
@@ -103,7 +104,9 @@ func New(cfg Config) (*Daemon, error) {
 		}
 
 		// Dispatch workflow execution via engine
+		d.wg.Add(1)
 		go func() {
+			defer d.wg.Done()
 			_, _ = d.engine.ExecuteWorkflow(d.ctx, wf, store.TriggeredByCron)
 		}()
 		return nil
@@ -186,10 +189,22 @@ func (d *Daemon) Shutdown() error {
 	case <-time.After(5 * time.Second):
 	}
 
-	// 3. Clean up signal coordinator
+	// 3. Wait for in-flight workflows to drain within configured grace period
+	drainCh := make(chan struct{})
+	go func() {
+		d.wg.Wait()
+		close(drainCh)
+	}()
+
+	select {
+	case <-drainCh:
+	case <-time.After(d.cfg.ShutdownTimeout):
+	}
+
+	// 4. Clean up signal coordinator
 	d.coordinator.Close()
 
-	// 4. Close database connection
+	// 5. Close database connection
 	_ = d.store.Close()
 
 	return nil

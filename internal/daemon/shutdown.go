@@ -4,14 +4,16 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 )
 
 // ShutdownCoordinator handles OS signal trapping and orchestrates phased graceful shutdown.
 type ShutdownCoordinator struct {
-	signals chan os.Signal
-	done    chan struct{}
+	signals  chan os.Signal
+	done     chan struct{}
+	closeOnce sync.Once
 }
 
 // NewShutdownCoordinator creates a ShutdownCoordinator listening for SIGINT and SIGTERM.
@@ -39,14 +41,12 @@ func (c *ShutdownCoordinator) Signals() <-chan os.Signal {
 	return c.signals
 }
 
-// Close unregisters OS signal notifications.
+// Close unregisters OS signal notifications idempotently.
 func (c *ShutdownCoordinator) Close() {
 	signal.Stop(c.signals)
-	select {
-	case <-c.done:
-	default:
+	c.closeOnce.Do(func() {
 		close(c.done)
-	}
+	})
 }
 
 // GracefulTimeoutContext creates a context bound to a shutdown grace period.

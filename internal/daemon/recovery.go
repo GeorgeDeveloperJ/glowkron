@@ -23,15 +23,16 @@ func RecoverOrphanedRuns(ctx context.Context, st *store.Store) (int, int, error)
 	db := st.DB()
 	nowStr := time.Now().UTC().Format(time.RFC3339)
 
-	// 1. Recover orphaned StepRuns (status -> FAILED, exit_code -> 1, end_time -> now)
+	// 1. Recover orphaned StepRuns (status -> FAILED, exit_code -> 1, stderr_snippet, end_time -> now)
 	failExitCode := 1
 	stepQuery := `UPDATE step_runs 
-		SET status = ?, exit_code = ?, end_time = COALESCE(end_time, ?)
+		SET status = ?, exit_code = ?, stderr_snippet = COALESCE(stderr_snippet, ?), end_time = COALESCE(end_time, ?)
 		WHERE status = ?`
 
 	stepRes, err := db.ExecContext(ctx, stepQuery,
 		string(store.StepRunFailed),
 		failExitCode,
+		DefaultCrashRecoveryMessage,
 		nowStr,
 		string(store.StepRunRunning),
 	)
@@ -54,7 +55,7 @@ func RecoverOrphanedRuns(ctx context.Context, st *store.Store) (int, int, error)
 		string(store.JobRunRunning),
 	)
 	if err != nil {
-		return int(stepsRecovered), 0, fmt.Errorf("recover orphaned job runs: %w", err)
+		return 0, int(stepsRecovered), fmt.Errorf("recover orphaned job runs: %w", err)
 	}
 
 	jobsRecovered, _ := jobRes.RowsAffected()
