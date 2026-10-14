@@ -390,13 +390,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (elements.settingsDaemonStatus) elements.settingsDaemonStatus.textContent = "OFFLINE (Unreachable)";
   }
 
-  // Live UTC Clock & Resource Fluctuation Ticker
+  // Live Local Clock & Resource Fluctuation Ticker
   setInterval(() => {
     const now = new Date();
-    const utcHours = String(now.getUTCHours()).padStart(2, "0");
-    const utcMins = String(now.getUTCMinutes()).padStart(2, "0");
-    const utcSecs = String(now.getUTCSeconds()).padStart(2, "0");
-    const timeStr = `${utcHours}:${utcMins}:${utcSecs} UTC`;
+    const timeStr = now.toLocaleTimeString();
 
     if (elements.liveUtcClock) elements.liveUtcClock.textContent = timeStr;
     if (elements.sidebarServerTime) elements.sidebarServerTime.textContent = timeStr;
@@ -1489,9 +1486,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const lineEl = document.createElement("div");
     lineEl.className = "log-line";
 
-    const timeStr = state.terminalShowUTC
-      ? item.timestamp.substring(11, 23)
-      : item.relSec;
+    let timeStr = item.relSec;
+    if (state.terminalShowUTC) {
+      try {
+        timeStr = new Date(item.timestamp).toLocaleTimeString();
+      } catch {
+        timeStr = item.timestamp ? item.timestamp.substring(11, 19) : "";
+      }
+    }
 
     let highlightedText = escapeHTML(item.text);
     if (state.terminalSearchQuery) {
@@ -1557,11 +1559,11 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Timestamps toggle (Relative vs UTC)
+  // Timestamps toggle (Relative vs Local)
   if (elements.terminalToggleTimestamps) {
     elements.terminalToggleTimestamps.addEventListener("click", () => {
       state.terminalShowUTC = !state.terminalShowUTC;
-      elements.terminalToggleTimestamps.querySelector("span").textContent = state.terminalShowUTC ? "UTC Time" : "Rel Time";
+      elements.terminalToggleTimestamps.querySelector("span").textContent = state.terminalShowUTC ? "Local Time" : "Rel Time";
       elements.terminalToggleTimestamps.classList.toggle("active", state.terminalShowUTC);
       rerenderFilteredTerminal();
     });
@@ -1926,10 +1928,14 @@ document.addEventListener("DOMContentLoaded", () => {
       { title: "Go to Daemon Settings & Telemetry", category: "Navigation", badge: "View", onSelect: () => switchTab("settings") },
 
       // Terminal Actions
-      { title: "Toggle Relative / UTC Timestamps", category: "Live Terminal", badge: "Terminal", onSelect: () => {
+      { title: "Toggle Relative / Local Timestamps", category: "Live Terminal", badge: "Terminal", onSelect: () => {
         state.terminalShowUTC = !state.terminalShowUTC;
+        if (elements.terminalToggleTimestamps) {
+          elements.terminalToggleTimestamps.querySelector("span").textContent = state.terminalShowUTC ? "Local Time" : "Rel Time";
+          elements.terminalToggleTimestamps.classList.toggle("active", state.terminalShowUTC);
+        }
         rerenderFilteredTerminal();
-        showToast({ title: "Terminal", message: `Timestamps switched to ${state.terminalShowUTC ? "UTC" : "Relative"}`, type: "info" });
+        showToast({ title: "Terminal", message: `Timestamps switched to ${state.terminalShowUTC ? "Local" : "Relative"}`, type: "info" });
       }},
       { title: "Toggle Word Wrap", category: "Live Terminal", badge: "Terminal", onSelect: () => {
         state.terminalWordWrap = !state.terminalWordWrap;

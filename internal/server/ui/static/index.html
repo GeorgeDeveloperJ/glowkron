@@ -89,13 +89,13 @@
           <button class="pill-action-btn" id="header-active-run-btn" title="Jump to Active Terminal">View</button>
         </div>
 
-        <!-- Live UTC Clock -->
-        <div class="clock-display" title="Live Server UTC Clock">
+        <!-- Live Local Clock -->
+        <div class="clock-display" title="Live Local Clock">
           <svg class="icon" viewBox="0 0 24 24" width="13" height="13">
             <circle cx="12" cy="12" r="10"></circle>
             <polyline points="12 6 12 12 16 14"></polyline>
           </svg>
-          <span id="live-utc-clock">--:--:-- UTC</span>
+          <span id="live-utc-clock">--:--:--</span>
         </div>
 
         <!-- Global Refresh Button -->
@@ -509,7 +509,7 @@
                 <span class="control-separator"></span>
 
                 <!-- Action Toggles -->
-                <button class="terminal-ctrl-btn" id="terminal-toggle-timestamps" type="button" title="Toggle relative / UTC timestamps">
+                <button class="terminal-ctrl-btn" id="terminal-toggle-timestamps" type="button" title="Toggle relative / local timestamps">
                   <span>Rel Time</span>
                 </button>
                 <button class="terminal-ctrl-btn" id="terminal-toggle-wrap" type="button" title="Toggle Word Wrap">
@@ -725,7 +725,7 @@
                     <tr><td class="env-key">Daemon Status</td><td class="env-val" id="settings-daemon-status">HEALTHY</td></tr>
                     <tr><td class="env-key">Version</td><td class="env-val" id="settings-version">v0.1.0</td></tr>
                     <tr><td class="env-key">Workflows Directory</td><td class="env-val" id="settings-workflows-dir">~</td></tr>
-                    <tr><td class="env-key">Server Time (UTC)</td><td class="env-val" id="settings-server-time">--:--:--</td></tr>
+                    <tr><td class="env-key">Server Time (Local)</td><td class="env-val" id="settings-server-time">--:--:--</td></tr>
                   </tbody>
                 </table>
               </div>
