@@ -77,12 +77,11 @@ func (s *Syncer) SyncFile(ctx context.Context, filePath string) (*store.Job, err
 		if err := s.store.UpdateJob(ctx, job); err != nil {
 			return nil, fmt.Errorf("update job: %w", err)
 		}
-		// Delete old steps to recreate from new spec
-		_ = s.store.DeleteStepsByJobID(ctx, jobID)
 	}
 
-	// Map and insert steps
+	// Map and upsert steps
 	storeSteps := make([]*store.JobStep, 0, len(wf.Steps))
+	stepIDs := make([]string, 0, len(wf.Steps))
 	for idx, step := range wf.Steps {
 		storeSteps = append(storeSteps, &store.JobStep{
 			ID:         step.ID,
@@ -95,12 +94,17 @@ func (s *Syncer) SyncFile(ctx context.Context, filePath string) (*store.Job, err
 			DependsOn:  step.DependsOn,
 			StepOrder:  idx,
 		})
+		stepIDs = append(stepIDs, step.ID)
 	}
 
 	if len(storeSteps) > 0 {
 		if err := s.store.CreateSteps(ctx, storeSteps); err != nil {
-			return nil, fmt.Errorf("create job steps: %w", err)
+			return nil, fmt.Errorf("upsert job steps: %w", err)
 		}
+	}
+	// Prune steps that were removed from the updated workflow definition
+	if err := s.store.DeleteStepsNotIn(ctx, jobID, stepIDs); err != nil {
+		return nil, fmt.Errorf("prune removed job steps: %w", err)
 	}
 
 	// Synchronize with Scheduler if schedule is non-empty

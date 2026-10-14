@@ -411,3 +411,99 @@ func TestConcurrency(t *testing.T) {
 		t.Errorf("concurrency error encountered: %v", err)
 	}
 }
+
+func TestWorkflowStepResyncAndSharedStepIDs(t *testing.T) {
+	ctx := context.Background()
+	s := newTestStore(t)
+
+	// 1. Create two distinct jobs
+	jobA := &Job{ID: "job-alpha", Name: "Job Alpha"}
+	jobB := &Job{ID: "job-beta", Name: "Job Beta"}
+	if err := s.CreateJob(ctx, jobA); err != nil {
+		t.Fatalf("CreateJob A failed: %v", err)
+	}
+	if err := s.CreateJob(ctx, jobB); err != nil {
+		t.Fatalf("CreateJob B failed: %v", err)
+	}
+
+	// 2. Both jobs define a step with the same ID "step-build"
+	stepA := &JobStep{
+		ID:      "step-build",
+		JobID:   "job-alpha",
+		Name:    "Alpha Build",
+		Command: "go build",
+	}
+	stepB := &JobStep{
+		ID:      "step-build",
+		JobID:   "job-beta",
+		Name:    "Beta Build",
+		Command: "cargo build",
+	}
+	if err := s.CreateSteps(ctx, []*JobStep{stepA}); err != nil {
+		t.Fatalf("CreateSteps for Job A failed: %v", err)
+	}
+	if err := s.CreateSteps(ctx, []*JobStep{stepB}); err != nil {
+		t.Fatalf("CreateSteps for Job B with shared step ID failed: %v", err)
+	}
+
+	// 3. Create execution run history for Job A referencing step-build
+	runA := &JobRun{
+		ID:          "run-alpha-1",
+		JobID:       "job-alpha",
+		Status:      JobRunCompleted,
+		TriggeredBy: TriggeredByCLI,
+	}
+	if err := s.CreateJobRun(ctx, runA); err != nil {
+		t.Fatalf("CreateJobRun failed: %v", err)
+	}
+	stepRunA := &StepRun{
+		ID:       "srun-alpha-1",
+		JobRunID: "run-alpha-1",
+		StepID:   "step-build",
+		Status:   StepRunCompleted,
+	}
+	if err := s.CreateStepRun(ctx, stepRunA); err != nil {
+		t.Fatalf("CreateStepRun failed: %v", err)
+	}
+
+	// 4. Re-sync Job A: update step-build command, add step-test
+	stepAUpdated := &JobStep{
+		ID:      "step-build",
+		JobID:   "job-alpha",
+		Name:    "Alpha Build v2",
+		Command: "go build -v",
+	}
+	stepA2 := &JobStep{
+		ID:      "step-test",
+		JobID:   "job-alpha",
+		Name:    "Alpha Test",
+		Command: "go test",
+	}
+	if err := s.CreateSteps(ctx, []*JobStep{stepAUpdated, stepA2}); err != nil {
+		t.Fatalf("Re-sync CreateSteps failed on existing run history: %v", err)
+	}
+
+	// Verify step-build was updated in place
+	stepsA, err := s.GetStepsByJobID(ctx, "job-alpha")
+	if err != nil || len(stepsA) != 2 {
+		t.Fatalf("GetStepsByJobID failed: %v (count: %d)", err, len(stepsA))
+	}
+	if stepsA[0].Name != "Alpha Build v2" || stepsA[0].Command != "go build -v" {
+		t.Errorf("step-build was not properly upserted: %+v", stepsA[0])
+	}
+
+	// Verify historical step_runs are intact
+	sr, err := s.GetStepRun(ctx, "srun-alpha-1")
+	if err != nil || sr.Status != StepRunCompleted {
+		t.Fatalf("historical step run was compromised: %v, %+v", err, sr)
+	}
+
+	// 5. Test DeleteStepsNotIn: prune step-test, keep step-build
+	if err := s.DeleteStepsNotIn(ctx, "job-alpha", []string{"step-build"}); err != nil {
+		t.Fatalf("DeleteStepsNotIn failed: %v", err)
+	}
+	stepsAfterPrune, err := s.GetStepsByJobID(ctx, "job-alpha")
+	if err != nil || len(stepsAfterPrune) != 1 || stepsAfterPrune[0].ID != "step-build" {
+		t.Fatalf("Pruning failed: %v, remaining: %+v", err, stepsAfterPrune)
+	}
+}

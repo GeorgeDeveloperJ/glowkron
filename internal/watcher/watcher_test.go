@@ -148,6 +148,91 @@ steps:
 	}
 }
 
+func TestSyncer_ResyncWithExistingRunHistory(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test.db")
+	st, err := store.New(dbPath)
+	if err != nil {
+		t.Fatalf("failed to init store: %v", err)
+	}
+	defer st.Close()
+
+	sched := newMockScheduler()
+	syncer := NewSyncer(st, sched)
+	ctx := context.Background()
+
+	// 1. Initial workflow sync
+	wfPath := filepath.Join(tempDir, "pipeline.yaml")
+	yamlInitial := `version: "1.0"
+name: test-pipeline
+steps:
+  - id: step-1
+    command: echo
+    args: ["v1"]
+`
+	if err := os.WriteFile(wfPath, []byte(yamlInitial), 0644); err != nil {
+		t.Fatalf("failed to write workflow: %v", err)
+	}
+	if _, err := syncer.SyncFile(ctx, wfPath); err != nil {
+		t.Fatalf("initial SyncFile failed: %v", err)
+	}
+
+	// 2. Simulate historical run execution
+	run := &store.JobRun{
+		ID:          "run-100",
+		JobID:       "test-pipeline",
+		Status:      store.JobRunCompleted,
+		TriggeredBy: store.TriggeredByCLI,
+	}
+	if err := st.CreateJobRun(ctx, run); err != nil {
+		t.Fatalf("CreateJobRun failed: %v", err)
+	}
+	stepRun := &store.StepRun{
+		ID:       "srun-100",
+		JobRunID: "run-100",
+		StepID:   "step-1",
+		Status:   store.StepRunCompleted,
+	}
+	if err := st.CreateStepRun(ctx, stepRun); err != nil {
+		t.Fatalf("CreateStepRun failed: %v", err)
+	}
+
+	// 3. Re-sync workflow from disk with updated step args and an added step
+	yamlUpdated := `version: "1.0"
+name: test-pipeline
+steps:
+  - id: step-1
+    command: echo
+    args: ["v2-updated"]
+  - id: step-2
+    command: echo
+    args: ["new-step"]
+`
+	if err := os.WriteFile(wfPath, []byte(yamlUpdated), 0644); err != nil {
+		t.Fatalf("failed to update workflow: %v", err)
+	}
+
+	// Re-sync MUST NOT fail on foreign key constraint or unique constraint!
+	if _, err := syncer.SyncFile(ctx, wfPath); err != nil {
+		t.Fatalf("SyncFile on existing run history failed: %v", err)
+	}
+
+	// Verify steps updated in store
+	steps, err := st.GetStepsByJobID(ctx, "test-pipeline")
+	if err != nil || len(steps) != 2 {
+		t.Fatalf("unexpected step count after re-sync: %v, count: %d", err, len(steps))
+	}
+	if steps[0].Args[0] != "v2-updated" {
+		t.Fatalf("step-1 args not updated: %+v", steps[0])
+	}
+
+	// Verify historical step run still intact
+	savedSR, err := st.GetStepRun(ctx, "srun-100")
+	if err != nil || savedSR.Status != store.StepRunCompleted {
+		t.Fatalf("historical step run was compromised: %v, %+v", err, savedSR)
+	}
+}
+
 func TestWatcher_LiveFileSystemEvents(t *testing.T) {
 	tempDir := t.TempDir()
 	dbPath := filepath.Join(tempDir, "test.db")

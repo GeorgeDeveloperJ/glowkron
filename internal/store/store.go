@@ -127,7 +127,7 @@ func (s *Store) migrate(ctx context.Context) error {
 	);
 
 	CREATE TABLE IF NOT EXISTS job_steps (
-		id TEXT PRIMARY KEY,
+		id TEXT NOT NULL,
 		job_id TEXT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
 		name TEXT NOT NULL,
 		command TEXT NOT NULL,
@@ -135,7 +135,8 @@ func (s *Store) migrate(ctx context.Context) error {
 		working_dir TEXT,
 		env_vars TEXT,
 		depends_on TEXT,
-		step_order INTEGER DEFAULT 0
+		step_order INTEGER DEFAULT 0,
+		PRIMARY KEY (job_id, id)
 	);
 
 	CREATE TABLE IF NOT EXISTS job_runs (
@@ -154,7 +155,7 @@ func (s *Store) migrate(ctx context.Context) error {
 	CREATE TABLE IF NOT EXISTS step_runs (
 		id TEXT PRIMARY KEY,
 		job_run_id TEXT NOT NULL REFERENCES job_runs(id) ON DELETE CASCADE,
-		step_id TEXT NOT NULL REFERENCES job_steps(id),
+		step_id TEXT NOT NULL,
 		status TEXT NOT NULL,
 		start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
 		end_time DATETIME,
@@ -168,8 +169,82 @@ func (s *Store) migrate(ctx context.Context) error {
 	CREATE INDEX IF NOT EXISTS idx_step_runs_job_run_id ON step_runs(job_run_id);
 	`
 
-	_, err := s.db.ExecContext(ctx, schema)
-	return err
+	if _, err := s.db.ExecContext(ctx, schema); err != nil {
+		return err
+	}
+	return s.upgradeSchema(ctx)
+}
+
+// upgradeSchema checks for legacy schemas and safely migrates them.
+func (s *Store) upgradeSchema(ctx context.Context) error {
+	// Inspect job_steps table structure to see if primary key is single-column (legacy)
+	rows, err := s.db.QueryContext(ctx, "PRAGMA table_info(job_steps)")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	pkCount := 0
+	hasJobSteps := false
+	for rows.Next() {
+		hasJobSteps = true
+		var cid int
+		var name, colType string
+		var notNull, pk int
+		var dflt sql.NullString
+		if err := rows.Scan(&cid, &name, &colType, &notNull, &dflt, &pk); err == nil {
+			if pk > 0 {
+				pkCount++
+			}
+		}
+	}
+	_ = rows.Close()
+
+	if hasJobSteps && pkCount == 1 {
+		// Old schema detected with single PK on id. Migrate to composite PK (job_id, id)
+		migration := `
+		PRAGMA foreign_keys = OFF;
+
+		CREATE TABLE IF NOT EXISTS job_steps_migrated (
+			id TEXT NOT NULL,
+			job_id TEXT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+			name TEXT NOT NULL,
+			command TEXT NOT NULL,
+			args TEXT,
+			working_dir TEXT,
+			env_vars TEXT,
+			depends_on TEXT,
+			step_order INTEGER DEFAULT 0,
+			PRIMARY KEY (job_id, id)
+		);
+		INSERT OR REPLACE INTO job_steps_migrated SELECT * FROM job_steps;
+		DROP TABLE job_steps;
+		ALTER TABLE job_steps_migrated RENAME TO job_steps;
+		CREATE INDEX IF NOT EXISTS idx_job_steps_job_id ON job_steps(job_id);
+
+		CREATE TABLE IF NOT EXISTS step_runs_migrated (
+			id TEXT PRIMARY KEY,
+			job_run_id TEXT NOT NULL REFERENCES job_runs(id) ON DELETE CASCADE,
+			step_id TEXT NOT NULL,
+			status TEXT NOT NULL,
+			start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+			end_time DATETIME,
+			exit_code INTEGER,
+			stdout_snippet TEXT,
+			stderr_snippet TEXT
+		);
+		INSERT OR IGNORE INTO step_runs_migrated SELECT * FROM step_runs;
+		DROP TABLE step_runs;
+		ALTER TABLE step_runs_migrated RENAME TO step_runs;
+		CREATE INDEX IF NOT EXISTS idx_step_runs_job_run_id ON step_runs(job_run_id);
+
+		PRAGMA foreign_keys = ON;
+		`
+		if _, err := s.db.ExecContext(ctx, migration); err != nil {
+			return fmt.Errorf("upgrade schema: %w", err)
+		}
+	}
+	return nil
 }
 
 // --- Jobs CRUD ---
@@ -369,7 +444,15 @@ func (s *Store) CreateSteps(ctx context.Context, steps []*JobStep) error {
 
 	stmt, err := tx.PrepareContext(ctx, `INSERT INTO job_steps (
 		id, job_id, name, command, args, working_dir, env_vars, depends_on, step_order
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	ON CONFLICT (job_id, id) DO UPDATE SET
+		name = excluded.name,
+		command = excluded.command,
+		args = excluded.args,
+		working_dir = excluded.working_dir,
+		env_vars = excluded.env_vars,
+		depends_on = excluded.depends_on,
+		step_order = excluded.step_order`)
 	if err != nil {
 		return fmt.Errorf("prepare insert step: %w", err)
 	}
@@ -471,6 +554,26 @@ func (s *Store) DeleteStepsByJobID(ctx context.Context, jobID string) error {
 	_, err := s.db.ExecContext(ctx, "DELETE FROM job_steps WHERE job_id = ?", jobID)
 	if err != nil {
 		return fmt.Errorf("delete steps for job %s: %w", jobID, err)
+	}
+	return nil
+}
+
+// DeleteStepsNotIn deletes any steps for a job whose IDs are not in the provided keepIDs list.
+func (s *Store) DeleteStepsNotIn(ctx context.Context, jobID string, keepIDs []string) error {
+	if len(keepIDs) == 0 {
+		return s.DeleteStepsByJobID(ctx, jobID)
+	}
+	placeholders := make([]string, len(keepIDs))
+	args := make([]interface{}, 0, len(keepIDs)+1)
+	args = append(args, jobID)
+	for i, id := range keepIDs {
+		placeholders[i] = "?"
+		args = append(args, id)
+	}
+	query := fmt.Sprintf("DELETE FROM job_steps WHERE job_id = ? AND id NOT IN (%s)", strings.Join(placeholders, ","))
+	_, err := s.db.ExecContext(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("delete steps not in list for job %s: %w", jobID, err)
 	}
 	return nil
 }
