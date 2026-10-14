@@ -1,0 +1,14 @@
+[Unit]
+Description=GlowKron Background Job & DAG Workflow Orchestrator
+After=network.target
+
+[Service]
+ExecStart=%h/.local/bin/glowkron daemon
+Restart=on-failure
+RestartSec=5s
+KillMode=control-group
+TimeoutStopSec=35s
+LimitNOFILE=65536
+
+[Install]
+WantedBy=default.target

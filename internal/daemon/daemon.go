@@ -30,23 +30,23 @@ type Config struct {
 
 // Daemon coordinates all subsystem services, lifecycle transitions, and graceful termination.
 type Daemon struct {
-	mu           sync.Mutex
-	cfg          Config
-	store        *store.Store
-	appender     *logger.FileAppender
-	broker       *logger.LogBroker
-	engine       *engine.Engine
-	scheduler    *scheduler.Scheduler
-	watcher      *watcher.Watcher
-	syncer       *watcher.Syncer
-	dispatcher   *notifier.Dispatcher
-	server       *server.Server
-	coordinator  *ShutdownCoordinator
-	wg           sync.WaitGroup
-	serverWg     sync.WaitGroup
-	ctx          context.Context
-	cancel       context.CancelFunc
-	running      bool
+	mu          sync.Mutex
+	cfg         Config
+	store       *store.Store
+	appender    *logger.FileAppender
+	broker      *logger.LogBroker
+	engine      *engine.Engine
+	scheduler   *scheduler.Scheduler
+	watcher     *watcher.Watcher
+	syncer      *watcher.Syncer
+	dispatcher  *notifier.Dispatcher
+	server      *server.Server
+	coordinator *ShutdownCoordinator
+	wg          sync.WaitGroup
+	serverWg    sync.WaitGroup
+	ctx         context.Context
+	cancel      context.CancelFunc
+	running     bool
 }
 
 // New initializes the daemon and its subsystem services.

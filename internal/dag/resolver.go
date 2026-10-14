@@ -79,9 +79,10 @@ func (p *Plan) IsEmpty() bool {
 
 // findCycle runs a 3-color DFS to detect cycles and capture the full traversal chain.
 // State markers:
-//   0: unvisited
-//   1: visiting (active on DFS call stack)
-//   2: visited (fully explored)
+//
+//	0: unvisited
+//	1: visiting (active on DFS call stack)
+//	2: visited (fully explored)
 func (g *Graph) findCycle() []string {
 	state := make(map[string]int)
 	var path []string

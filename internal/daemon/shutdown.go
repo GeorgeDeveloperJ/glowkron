@@ -11,8 +11,8 @@ import (
 
 // ShutdownCoordinator handles OS signal trapping and orchestrates phased graceful shutdown.
 type ShutdownCoordinator struct {
-	signals  chan os.Signal
-	done     chan struct{}
+	signals   chan os.Signal
+	done      chan struct{}
 	closeOnce sync.Once
 }
 

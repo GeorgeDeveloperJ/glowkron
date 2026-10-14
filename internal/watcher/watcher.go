@@ -14,16 +14,16 @@ import (
 
 // Watcher monitors a workflows directory for YAML file events and triggers synchronization.
 type Watcher struct {
-	mu           sync.Mutex
-	dir          string
-	syncer       *Syncer
-	fswatcher    *fsnotify.Watcher
-	debounceDur  time.Duration
-	pendingMu    sync.Mutex
+	mu            sync.Mutex
+	dir           string
+	syncer        *Syncer
+	fswatcher     *fsnotify.Watcher
+	debounceDur   time.Duration
+	pendingMu     sync.Mutex
 	pendingTimers map[string]*time.Timer
-	ctx          context.Context
-	cancel       context.CancelFunc
-	done         chan struct{}
+	ctx           context.Context
+	cancel        context.CancelFunc
+	done          chan struct{}
 }
 
 // Option configures Watcher parameters.

@@ -167,13 +167,13 @@ func TestJobStepsCascade(t *testing.T) {
 			StepOrder:  0,
 		},
 		{
-			ID:         "step-compress",
-			JobID:      "job-dag",
-			Name:       "Compress",
-			Command:    "gzip",
-			Args:       []string{"-f", "/tmp/backup.sql"},
-			DependsOn:  []string{"step-dump"},
-			StepOrder:  1,
+			ID:        "step-compress",
+			JobID:     "job-dag",
+			Name:      "Compress",
+			Command:   "gzip",
+			Args:      []string{"-f", "/tmp/backup.sql"},
+			DependsOn: []string{"step-dump"},
+			StepOrder: 1,
 		},
 	}
 

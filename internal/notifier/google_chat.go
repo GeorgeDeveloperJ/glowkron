@@ -19,7 +19,7 @@ type GoogleChatCardWrapper struct {
 }
 
 type GoogleChatCard struct {
-	Header   GoogleChatHeader   `json:"header"`
+	Header   GoogleChatHeader    `json:"header"`
 	Sections []GoogleChatSection `json:"sections"`
 }
 

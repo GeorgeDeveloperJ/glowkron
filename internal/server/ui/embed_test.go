@@ -153,4 +153,3 @@ func TestEmbeddedUI_SpecRequirements(t *testing.T) {
 		}
 	}
 }
-

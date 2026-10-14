@@ -66,6 +66,7 @@ func NewRootCmd(cliCtx *CLIContext) *cobra.Command {
 		Short: "GlowKron is a single-binary background job & DAG workflow orchestrator",
 		Long: `GlowKron provides cron scheduling, multi-step dependency graphs (DAG),
 automatic retries with exponential backoff, real-time logging, and WAL SQLite durability.`,
+		Version:       fmt.Sprintf("%s (commit: %s, date: %s)", version, commit, date),
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
@@ -83,6 +84,7 @@ automatic retries with exponential backoff, real-time logging, and WAL SQLite du
 	rootCmd.AddCommand(newRunsCmd(cliCtx))
 	rootCmd.AddCommand(newLogsCmd(cliCtx))
 	rootCmd.AddCommand(newValidateCmd(cliCtx))
+	rootCmd.AddCommand(newInitCmd(cliCtx))
 
 	return rootCmd
 }

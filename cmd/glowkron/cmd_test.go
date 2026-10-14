@@ -287,3 +287,22 @@ steps:
 		t.Errorf("expected cycle error, got %v", err)
 	}
 }
+
+func TestCLI_Version(t *testing.T) {
+	ctx := &CLIContext{}
+	cmd := NewRootCmd(ctx)
+
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{"--version"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error executing --version: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "glowkron version") {
+		t.Errorf("expected version output, got %q", out)
+	}
+}

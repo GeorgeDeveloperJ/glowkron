@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.x'
+          cache: true
+
+      - name: Verify code formatting
+        run: test -z "$(gofmt -l .)"
+
+      - name: Go vet
+        run: go vet ./...
+
+      - name: Validate embedded UI assets
+        run: go test -v -count=1 ./internal/server/ui/...
+
+      - name: Run race tests across all packages
+        run: go test -race -v -count=1 ./...
+
+      - name: Verify clean zero-CGo binary build
+        run: CGO_ENABLED=0 go build -v ./cmd/glowkron
