@@ -1,0 +1,26 @@
+version: "1.0"
+name: demo-pipeline
+description: "Demonstration multi-step DAG pipeline"
+steps:
+  - id: prepare
+    name: "Prepare Environment"
+    command: echo
+    args: ["Environment ready"]
+
+  - id: step-a
+    name: "Worker Step A"
+    command: echo
+    args: ["Task A finished"]
+    depends_on: ["prepare"]
+
+  - id: step-b
+    name: "Worker Step B"
+    command: echo
+    args: ["Task B finished"]
+    depends_on: ["prepare"]
+
+  - id: aggregate
+    name: "Aggregate Results"
+    command: echo
+    args: ["All tasks completed"]
+    depends_on: ["step-a", "step-b"]

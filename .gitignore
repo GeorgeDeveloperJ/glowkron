@@ -6,6 +6,8 @@
 *.db
 *.db-wal
 *.db-shm
+.glowkron/
+logs/
 
 # Environment
 .env

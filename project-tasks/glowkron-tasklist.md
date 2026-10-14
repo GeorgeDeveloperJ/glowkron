@@ -22,9 +22,9 @@
   - [x] Task 3.1: Cron Scheduling Integration (`robfig/cron/v3`)
   - [x] Task 3.2: Directory Watcher & Workflow Auto-Sync
   - [x] Task 3.3: Daemon Lifecycle, Graceful Shutdown & Crash Recovery
-- [ ] **Phase 4: CLI Interface (`spf13/cobra`)** (0 / 2 complete)
-  - [ ] Task 4.1: Cobra CLI Command Tree
-  - [ ] Task 4.2: Daemon Client & Offline SQLite Fallback
+- [x] **Phase 4: CLI Interface (`spf13/cobra`)** (2 / 2 complete)
+  - [x] Task 4.1: Cobra CLI Command Tree
+  - [x] Task 4.2: Daemon Client & Offline SQLite Fallback
 - [ ] **Phase 5: Webhook Notifier** (0 / 1 complete)
   - [ ] Task 5.1: Multi-Platform Webhook Dispatcher
 - [ ] **Phase 6: Embedded Web Dashboard & SSE Log Streaming** (0 / 2 complete)
@@ -294,7 +294,7 @@
 
 ## Phase 4: CLI Interface (`spf13/cobra`)
 
-### [ ] Task 4.1: Cobra CLI Command Tree
+### [x] Task 4.1: Cobra CLI Command Tree
 - **Spec Reference & Quoted Requirements:**
   > "4.1: CLI Command Tree (`cmd/glowkron/`):
   > - `glowkron daemon [--config <path>] [--port <8080>]`
@@ -331,7 +331,7 @@
 
 ---
 
-### [ ] Task 4.2: Daemon Client & Offline SQLite Fallback
+### [x] Task 4.2: Daemon Client & Offline SQLite Fallback
 - **Spec Reference & Quoted Requirements:**
   > "4.2: Daemon Client:
   > - HTTP client querying local daemon API when running.
