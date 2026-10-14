@@ -14,8 +14,8 @@
   - [x] Task 1.2: Subprocess Execution with Process Groups & Timeout
   - [x] Task 1.3: SQLite Storage with WAL Mode, Migrations & CRUD
   - [x] Task 1.4: Disk-Backed Run Log Files & In-Memory Pub/Sub Broker
-- [ ] **Phase 2: DAG Workflow Engine & Worker Pool** (0 / 3 complete)
-  - [ ] Task 2.1: Workflow YAML Parser & Schema Validator
+- [ ] **Phase 2: DAG Workflow Engine & Worker Pool** (1 / 3 complete)
+  - [x] Task 2.1: Workflow YAML Parser & Schema Validator
   - [ ] Task 2.2: DAG Dependency Resolver & Topological Sort
   - [ ] Task 2.3: Bounded Worker Pool & Exponential Backoff Engine
 - [ ] **Phase 3: Cron Scheduler & Daemon Lifecycle** (0 / 3 complete)
@@ -137,7 +137,7 @@
 
 ## Phase 2: DAG Workflow Engine & Worker Pool
 
-### [ ] Task 2.1: Workflow YAML Parser & Schema Validator
+### [x] Task 2.1: Workflow YAML Parser & Schema Validator
 - **Spec Reference & Quoted Requirements:**
   > "2.1: Workflow Parser & Validator (`internal/workflow`):
   > - YAML deserialization into typed structs.
