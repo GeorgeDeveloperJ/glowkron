@@ -1853,9 +1853,13 @@ mark {
   background-color: var(--bg-surface-1);
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
-  margin: 0 1.25rem 1.25rem;
+  margin: 1.25rem;
   overflow: hidden;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+.stats-grid + .card {
+  margin-top: 0;
 }
 
 .card-header {
